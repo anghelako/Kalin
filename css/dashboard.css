@@ -43,10 +43,10 @@ body.app { display: flex; height: 100dvh; background: #f3f6fa; overflow: hidden;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 22px clamp(16px, 3vw, 32px) 0;
 }
-.welcome-group { display: flex; flex-direction: column; gap: 6px; }
-.welcome { margin: 0; font: 800 26px/1.2 var(--display); letter-spacing: -.02em; }
+.welcome-group { display: flex; flex-direction: column; gap: 8px; }
+.welcome { margin: 0; font: 800 32px/1.15 var(--display); letter-spacing: -.025em; }
 .welcome span { color: var(--teal); }
-.today-date { color: var(--muted); font: 500 14px/1.4 var(--body); }
+.today-date { color: var(--muted); font: 500 15px/1.4 var(--body); }
 .top-actions { display: flex; align-items: center; gap: 10px; }
 
 .btn-create {
@@ -85,9 +85,8 @@ body.app { display: flex; height: 100dvh; background: #f3f6fa; overflow: hidden;
   .side-foot { width: 100%; }
 }
 @media (max-width: 560px) {
-  .welcome { font-size: 20px; }
+  .welcome { font-size: 24px; }
   .btn-create span { display: none; }
   .btn-create { padding: 0 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .nav-item, .btn-create { transition: none; } }
-

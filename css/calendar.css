@@ -4,8 +4,8 @@
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   padding: 20px clamp(16px, 3vw, 32px) 28px;
 }
-.top-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.top-title .today { margin: 0; color: var(--muted); font: 500 14px/1.4 var(--body); }
+.top-title { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.top-title .today { margin: 0; color: var(--muted); font: 500 15px/1.4 var(--body); }
 
 /* width:100% + min-width:0 stop the auto margins from shrink-wrapping to the grid's min-width */
 .cal { width: 100%; min-width: 0; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
