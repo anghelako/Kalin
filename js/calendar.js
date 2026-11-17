@@ -34,6 +34,7 @@ const PALETTE = [
 const state = {
   weekStart: startOfWeek(new Date()),
   filter: 'all',
+  circles: [],
   shifts: [],
   me: 'You',
   colors: new Map()
@@ -113,6 +114,24 @@ async function loadShifts(dates) {
 
     Until the real database query is configured,
     the calendar remains empty.
+  */
+
+  return [];
+}
+
+async function loadCircles() {
+  /*
+    Connect this to the circles the signed-in user belongs to.
+
+    Expected structure:
+
+    [
+      { id: "circle-id", name: "Patient 1" },
+      { id: "circle-id", name: "Patient 2" }
+    ]
+
+    Every circle returned here appears in the "Viewing" dropdown,
+    even if it has no shifts this week.
   */
 
   return [];
@@ -249,44 +268,8 @@ function render() {
       year: 'numeric'
     });
 
-  /* Weekly statistics */
-  $('stat-mine').textContent =
-    state.shifts.filter((s) => s.mine).length;
-
-  $('stat-open').textContent =
-    state.shifts.filter((s) => !s.person).length;
-
-  /* Circle filters */
-  const circles = [...state.colors.keys()];
-
-  const chips = [
-    { key: 'all', label: 'All circles' },
-    { key: 'mine', label: 'My shifts only' },
-    { key: 'open', label: 'Open shifts only' },
-
-    ...circles.map((circle) => ({
-      key: 'c:' + circle,
-      label: circle
-    }))
-  ];
-
-  $('chips').innerHTML = chips.map((chip) => `
-    <button
-      type="button"
-      class="chip${state.filter === chip.key ? ' active' : ''}"
-      data-filter="${esc(chip.key)}">
-      ${esc(chip.label)}
-    </button>
-  `).join('');
-
-  /* Legend */
-  $('legend').innerHTML =
-    circles.map((circle) => `
-      <span style="--c:${colorFor(circle).c}">
-        <i></i>${esc(circle)}
-      </span>
-    `).join('') +
-    `<span style="--c:#f59e0b"><i></i>Open shift</span>`;
+  /* Schedule-view button + dropdown */
+  renderView();
 
   /* Calendar header */
   let html = `
@@ -344,7 +327,7 @@ function render() {
       shown += cards.length;
 
       html += `
-        <div class="wg-cell">
+        <div class="wg-cell${ymd(date) === todayKey ? ' today' : ''}">
           ${cards.map(cardHtml).join('')}
         </div>
       `;
@@ -366,6 +349,175 @@ function render() {
 }
 
 /* =========================================================
+   SCHEDULE VIEW DROPDOWN
+   Opens downward from the "Viewing" button and lets the person
+   pick which schedule the calendar shows:
+   all circles, one circle, only their shifts, or only open shifts.
+========================================================= */
+
+const VIEW_ICON_CHECK =
+  '<svg class="opt-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+function circleNames() {
+  return [...new Set([
+    ...state.circles,
+    ...state.shifts.map((shift) => shift.circle)
+  ])];
+}
+
+function viewLabel() {
+  const filter = state.filter;
+
+  if (filter === 'mine') return 'My shifts only';
+  if (filter === 'open') return 'Open shifts only';
+  if (filter.startsWith('c:')) return filter.slice(2);
+
+  return 'All circles';
+}
+
+function optionHtml(key, label, count, color) {
+  const selected = state.filter === key;
+
+  return `
+    <button
+      type="button"
+      class="opt"
+      role="radio"
+      aria-checked="${selected}"
+      data-view="${esc(key)}"
+      style="--c:${color}">
+      <span class="opt-dot"></span>
+      <span class="opt-name">${esc(label)}</span>
+      <span class="opt-count">${count}</span>
+      ${VIEW_ICON_CHECK}
+    </button>
+  `;
+}
+
+function renderView() {
+  const names = circleNames();
+
+  const countFor = (name) =>
+    state.shifts.filter((shift) => shift.circle === name).length;
+
+  /* Button label */
+  $('view-label').textContent = viewLabel();
+
+  /* Circle options */
+  const circleOptions = names.length
+    ? names.map((name) =>
+        optionHtml('c:' + name, name, countFor(name), colorFor(name).c)
+      ).join('')
+    : `<p class="drawer-empty">
+         You haven't joined any circles yet.
+         Circles you join will show up here.
+       </p>`;
+
+  $('drawer-list').innerHTML = `
+    <section class="drawer-group">
+      <h3>Circles</h3>
+      <div class="drawer-list" role="radiogroup" aria-label="Circles">
+        ${optionHtml('all', 'All circles', state.shifts.length, '#081224')}
+        ${circleOptions}
+      </div>
+    </section>
+
+    <section class="drawer-group">
+      <h3>Quick views</h3>
+      <div class="drawer-list" role="radiogroup" aria-label="Quick views">
+        ${optionHtml('mine', 'My shifts only', state.shifts.filter((s) => s.mine).length, '#0d9488')}
+        ${optionHtml('open', 'Open shifts only', state.shifts.filter((s) => !s.person).length, '#f59e0b')}
+      </div>
+    </section>
+  `;
+}
+
+function menuIsOpen() {
+  return $('view-drawer').classList.contains('open');
+}
+
+function openMenu() {
+  renderView();
+
+  $('view-drawer').classList.add('open');
+  $('view-drawer').setAttribute('aria-hidden', 'false');
+  $('view-btn').setAttribute('aria-expanded', 'true');
+
+  const selected = $('drawer-list').querySelector('[aria-checked="true"]');
+
+  if (selected) selected.focus();
+}
+
+function closeMenu(returnFocus) {
+  $('view-drawer').classList.remove('open');
+  $('view-drawer').setAttribute('aria-hidden', 'true');
+  $('view-btn').setAttribute('aria-expanded', 'false');
+
+  if (returnFocus) $('view-btn').focus();
+}
+
+/* Button toggles the dropdown */
+$('view-btn').addEventListener('click', () => {
+  if (menuIsOpen()) {
+    closeMenu(false);
+  } else {
+    openMenu();
+  }
+});
+
+/* Choosing an option applies the filter and closes the dropdown */
+$('drawer-list').addEventListener('click', (event) => {
+  const option = event.target.closest('[data-view]');
+
+  if (!option) return;
+
+  state.filter = option.dataset.view;
+
+  render();
+  closeMenu(true);
+});
+
+/* Click anywhere outside the dropdown closes it */
+document.addEventListener('click', (event) => {
+  if (!menuIsOpen()) return;
+
+  if (event.target.closest('#view-menu')) return;
+
+  closeMenu(false);
+});
+
+/* Keyboard: Esc closes, arrow keys move between options, Tab leaves */
+document.addEventListener('keydown', (event) => {
+  if (!menuIsOpen()) return;
+
+  if (event.key === 'Escape') {
+    closeMenu(true);
+    return;
+  }
+
+  if (event.key === 'Tab') {
+    closeMenu(false);
+    return;
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    const options = [...$('drawer-list').querySelectorAll('.opt')];
+
+    if (!options.length) return;
+
+    event.preventDefault();
+
+    const index = options.indexOf(document.activeElement);
+
+    const next = event.key === 'ArrowDown'
+      ? options[(index + 1) % options.length]
+      : options[(index - 1 + options.length) % options.length];
+
+    next.focus();
+  }
+});
+
+/* =========================================================
    LOAD CALENDAR
 ========================================================= */
 
@@ -376,6 +528,8 @@ async function load() {
   note.textContent = 'Loading shifts…';
 
   try {
+    state.circles = (await loadCircles()).map((circle) => circle.name);
+
     state.shifts = await loadShifts(
       weekDates(state.weekStart)
     );
@@ -435,20 +589,6 @@ if (thisWeekButton) {
     load();
   });
 }
-
-/* =========================================================
-   FILTER EVENTS
-========================================================= */
-
-$('chips').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-filter]');
-
-  if (!button) return;
-
-  state.filter = button.dataset.filter;
-
-  render();
-});
 
 /* =========================================================
    SHIFT EVENTS
