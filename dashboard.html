@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · Kalin</title>
+<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/login.css">
+<link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body class="app">
+
+<aside class="side">
+  <a class="brand-mark" href="dashboard.html">
+    <img class="logo" src="images/kalin-logo.png" alt="" width="36" height="36">
+    <span class="wordmark">KALIN</span>
+  </a>
+
+  <nav class="nav" aria-label="Main">
+    <a class="nav-item active" href="dashboard.html" title="Home">
+      <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2z"/></svg>
+      <span>Home</span>
+    </a>
+    <a class="nav-item" href="calendar.html" title="Calendar">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span>Calendar</span>
+    </a>
+  </nav>
+
+  <div class="side-foot">
+    <button type="button" class="nav-item" id="signout" title="Sign out">
+      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      <span>Sign out</span>
+    </button>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="welcome-group">
+      <h1 class="welcome">Welcome, <span id="first-name">there</span></h1>
+      <time class="today-date" id="today-date"></time>
+    </div>
+
+    <div class="top-actions">
+      <button type="button" class="btn-create" id="create-circle">
+        <span>Create circle</span>
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+
+      <button type="button" class="icon-btn" id="notif" aria-label="Notifications">
+        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span class="dot" hidden></span>
+      </button>
+
+      <button type="button" class="avatar" id="profile" aria-label="Profile">
+        <span id="avatar-initial">K</span>
+      </button>
+    </div>
+  </header>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

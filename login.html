@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sign in · Kalin</title>
+<link rel="icon" type="image/png" href="images/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -15,7 +16,10 @@
   <!-- LEFT: brand panel -->
   <section class="brand" aria-label="About Kalin">
 
-    <div class="logo">KALIN</div>
+    <div class="brand-mark">
+      <img class="logo" src="images/kalin-logo.png" alt="" width="56" height="56">
+      <span class="wordmark">KALIN</span>
+    </div>
 
     <div class="hero">
       <h1>Every hand,<span>one heart.</span></h1>
@@ -29,7 +33,7 @@
   <!-- RIGHT: auth -->
   <main class="panel">
     <div class="form-wrap">
-      <form id="auth-form" novalidate>
+      <form id="auth-form" autocomplete="off" novalidate>
         <h2 id="title">Welcome to Kalin</h2>
         <p class="sub" id="subtitle">Please sign in to access your family’s care hub.</p>
 
@@ -37,21 +41,30 @@
           <label class="l" for="name">Full name</label>
           <div class="field">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-            <input id="name" type="text" autocomplete="name" placeholder="Your name">
+            <input id="name" type="text" autocomplete="off" placeholder="Your name">
           </div>
         </div>
 
         <label class="l" for="email">Email address</label>
         <div class="field">
           <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
-          <input id="email" type="email" autocomplete="email" placeholder="name@domain.com" required>
+          <input id="email" type="email" autocomplete="off" placeholder="name@domain.com" required>
         </div>
 
         <label class="l" for="password">Password</label>
         <div class="field">
           <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
-          <input id="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
-          <button class="show" type="button" id="toggle" aria-label="Show password">Show</button>
+          <input id="password" type="password" autocomplete="off" placeholder="Enter your password" required>
+          <button class="show" type="button" id="toggle" aria-label="Hold to show password">Hold</button>
+        </div>
+
+        <div class="confirm-field">
+          <label class="l" for="confirm">Confirm password</label>
+          <div class="field">
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+            <input id="confirm" type="password" autocomplete="new-password" placeholder="Re-enter your password">
+          </div>
+          <p class="hint" id="match-hint" aria-live="polite"></p>
         </div>
 
         <div class="row">
@@ -65,6 +78,11 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </button>
 
+        <p class="secure">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+          Encrypted &amp; private
+        </p>
+
         <div class="or" id="or-text">New to Kalin?</div>
         <button class="btn secondary" type="button" id="switch">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7M19 8v6M16 11h6"/></svg>
@@ -74,16 +92,82 @@
     </div>
 
     <footer>
-      <span>End-to-end encrypted</span>
-      <a href="/privacy.html">Privacy</a>
-      <a href="/terms.html">Terms</a>
-      <a href="/security.html">Security</a>
-      <a href="mailto:support@kalin.app">Need help?</a>
+      <button type="button" data-info="privacy">Privacy</button>
+      <button type="button" data-info="terms">Terms</button>
+      <button type="button" data-info="security">Security</button>
+      <button type="button" data-info="help">Need help?</button>
     </footer>
   </main>
 </div>
 
+<!-- Info pop-up. Replace the placeholder text below with your final, lawyer-reviewed copy. -->
+<dialog id="info-dialog" aria-labelledby="info-title">
+  <div class="dlg-head">
+    <div>
+      <span class="dlg-eyebrow">Kalin</span>
+      <h3 id="info-title"></h3>
+    </div>
+    <button type="button" class="dlg-close" id="info-close" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+
+  <div class="dlg-body">
+    <section data-panel="privacy" data-title="Privacy">
+      <p class="updated">Last updated: [date]</p>
+      <h4>What we collect</h4>
+      <p>Your name, email address, and the care information you and your family choose to add to Kalin.</p>
+      <h4>How we use it</h4>
+      <p>Only to run your family’s care hub: sign-in, sharing updates with the people you invite, and sending account emails. We don’t sell your data or use it for advertising.</p>
+      <h4>Who can see it</h4>
+      <p>Only you and the family members or caregivers you add to your hub.</p>
+      <h4>Your choices</h4>
+      <p>You can ask us to export or delete your data at any time by contacting support.</p>
+    </section>
+
+    <section data-panel="terms" data-title="Terms of use">
+      <p class="updated">Last updated: [date]</p>
+      <h4>Using Kalin</h4>
+      <p>Kalin helps families and care teams coordinate care. Keep your sign-in details private, and only invite people you trust.</p>
+      <h4>Not medical advice</h4>
+      <p>Kalin is a coordination tool. It doesn’t provide medical advice, diagnosis, or treatment. In an emergency, call your local emergency number.</p>
+      <h4>Your content</h4>
+      <p>You own the information you add. You’re responsible for having permission to share information about other people.</p>
+      <h4>Changes</h4>
+      <p>We may update these terms and will let you know about significant changes.</p>
+    </section>
+
+    <section data-panel="security" data-title="Security">
+      <h4>How we protect your data</h4>
+      <ul>
+        <li>All traffic is encrypted in transit with HTTPS.</li>
+        <li>Data is encrypted at rest on our database provider.</li>
+        <li>Each account can only access its own family’s information.</li>
+        <li>Passwords are stored securely and never visible to us.</li>
+      </ul>
+      <h4>Keeping your account safe</h4>
+      <p>Use a long, unique password and sign out on shared devices.</p>
+      <h4>Report a problem</h4>
+      <p>Found a security issue? Email <a href="mailto:security@kalin.app">security@kalin.app</a>.</p>
+    </section>
+
+    <section data-panel="help" data-title="Need help?">
+      <h4>Can’t sign in?</h4>
+      <p>Check your email and password, then use “Forgot password?” to get a reset link.</p>
+      <h4>Didn’t get an email?</h4>
+      <p>Check your spam folder, then wait a minute and try again.</p>
+      <h4>Still stuck?</h4>
+      <p>Email us at <a href="mailto:support@kalin.app">support@kalin.app</a> and we’ll get back to you.</p>
+    </section>
+  </div>
+
+  <div class="dlg-foot">
+    <button type="button" class="btn dlg-done" id="info-done">Got it</button>
+  </div>
+</dialog>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase.js"></script>
 <script src="js/login.js"></script>
 </body>
 </html>

@@ -1,0 +1,115 @@
+/* Kalin calendar — weekly view of every shift across circles */
+.cal { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.cal-panel { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 18px 22px; }
+
+/* ----- Week navigation + stats ----- */
+/* Calendar shortcut in the top bar: returns to the current Monday–Sunday week. */
+.calendar-week-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; padding: 0; border: 1px solid var(--line);
+  border-radius: 50%; background: #fff; color: var(--navy-900); cursor: pointer;
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.calendar-week-btn:hover { background: var(--field); border-color: #b7ece0; }
+.calendar-week-btn:active { transform: scale(.96); }
+.calendar-week-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.calendar-week-btn::after {
+  content: attr(data-tooltip); position: absolute; z-index: 20; top: calc(100% + 9px); left: 50%;
+  transform: translateX(-50%) translateY(-3px); padding: 6px 9px; border-radius: 7px;
+  background: var(--navy-900); color: #fff; font: 600 11px var(--body); white-space: nowrap;
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s, transform .15s, visibility .15s;
+}
+.calendar-week-btn:hover::after, .calendar-week-btn:focus-visible::after {
+  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+}
+
+.cal-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.week-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.week-pill {
+  min-width: 230px; padding: 10px 18px; text-align: center;
+  border: 1px solid #b7ece0; border-radius: 999px; background: #f0fdfa;
+  color: var(--teal); font: 700 14px var(--display);
+}
+
+.stats { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat {
+  display: inline-flex; align-items: center; gap: 10px; padding: 9px 16px;
+  border: 1px solid #b7ece0; border-radius: 999px; background: #f0fdfa;
+  color: var(--teal); font: 600 13px var(--body);
+}
+.stat strong { font: 800 17px var(--display); }
+.stat.open { border-color: #fde68a; background: #fffbeb; color: #b45309; }
+
+/* ----- Filters ----- */
+.cal-filters { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  height: 36px; padding: 0 16px; border: 0; border-radius: 999px;
+  background: #eef2f7; color: #3b475f; font: 600 13px var(--body);
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.chip:hover { background: #e1e7ef; }
+.chip.active { background: var(--navy-900); color: #fff; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font: 500 12px var(--body); color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+
+/* ----- Week grid ----- */
+.grid-scroll { overflow-x: auto; padding-bottom: 4px; }
+.week-grid { min-width: 1040px; }
+.wg-head, .wg-row {
+  display: grid; grid-template-columns: 146px repeat(7, minmax(118px, 1fr)); gap: 8px;
+}
+.wg-corner { align-self: center; padding-left: 4px; font: 600 13px var(--body); color: var(--muted); }
+.wg-day {
+  padding: 12px 8px; text-align: center;
+  border: 1px solid var(--line); border-radius: 14px; background: #f8fafc;
+}
+.wg-day small { display: block; font: 600 12px var(--body); color: var(--muted); }
+.wg-day strong { display: block; margin-top: 2px; font: 700 14px var(--display); }
+.wg-day.today { background: var(--navy-900); border-color: var(--navy-900); color: #fff; }
+.wg-day.today small { color: rgba(255, 255, 255, .72); }
+
+.wg-row { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.wg-slot { padding: 4px; }
+.wg-slot b { display: flex; align-items: center; gap: 8px; font: 700 14px var(--display); }
+.wg-slot b svg { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wg-slot small { display: block; white-space: nowrap; margin: 4px 0 0 24px; font: 500 12px var(--body); color: var(--muted); }
+.wg-cell { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+/* ----- Shift cards ----- */
+.shift {
+  display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-bg);
+}
+.shift-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.sh-tag {
+  min-width: 0; padding: 3px 8px; border-radius: 6px; background: var(--c); color: #fff;
+  font: 700 11px var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sh-you {
+  padding: 2px 7px; border: 1px solid var(--c-line); border-radius: 6px; background: #fff;
+  color: var(--teal); font: 700 10px var(--body);
+}
+.sh-who { font: 600 13px var(--body); color: var(--ink); }
+.sh-status { display: flex; align-items: center; gap: 6px; font: 600 12px var(--body); color: #059669; }
+.sh-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
+
+.shift.open { border: 1px dashed #fcd34d; background: #fffbeb; }
+.shift.open .sh-who { color: #92400e; }
+
+.shift-btn {
+  height: 30px; border: 1px solid #dbe2ec; border-radius: 8px; background: #fff;
+  color: var(--muted); font: 600 12px var(--body); cursor: pointer; transition: background .15s;
+}
+.shift-btn:hover { background: var(--field); }
+.shift-btn.volunteer { color: var(--teal); border-color: #99f6e4; }
+
+.cal-note { padding: 22px 8px 6px; text-align: center; color: var(--muted); font-size: 14px; }
+
+/* ----- Responsive ----- */
+@media (max-width: 560px) {
+  .cal-panel { padding: 14px; border-radius: 16px; }
+  .week-pill { min-width: 0; flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .chip, .calendar-week-btn, .shift-btn { transition: none; } }
