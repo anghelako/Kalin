@@ -62,7 +62,55 @@
     </div>
   </header>
 
+  <main class="content">
+    <section class="widget" id="circles" aria-labelledby="circles-title">
+      <header class="widget-head">
+        <div>
+          <h2 id="circles-title">Circles</h2>
+          <p class="widget-sub">Your active care circles</p>
+        </div>
+        <span class="widget-count" id="widget-count" hidden>0</span>
+      </header>
+
+      <div class="circle-grid" id="circle-grid" aria-live="polite"></div>
+    </section>
+  </main>
 </div>
+
+<dialog id="circle-dialog" aria-labelledby="circle-dialog-title">
+  <form id="circle-form" novalidate>
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow">New</span>
+        <h3 id="circle-dialog-title">Create a circle</h3>
+      </div>
+      <button type="button" class="dlg-close" id="circle-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <p>A circle is a shared space for the family and caregivers looking after one person.</p>
+
+      <label class="l" for="circle-name">Circle name</label>
+      <div class="field plain">
+        <input id="circle-name" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Care for Lola" required>
+      </div>
+
+      <label class="l" for="circle-desc">Description <span class="opt">(optional)</span></label>
+      <div class="field plain">
+        <input id="circle-desc" type="text" maxlength="120" autocomplete="off" placeholder="A short note about this circle">
+      </div>
+
+      <p class="hint nomatch" id="circle-error" role="alert"></p>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" id="circle-cancel">Cancel</button>
+      <button type="submit" class="btn-solid" id="circle-save">Create circle</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
