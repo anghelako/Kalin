@@ -151,6 +151,11 @@ body.app {
   overflow-y: auto;
 }
 
+.circle-link.active {
+  background: rgba(255, 255, 255, .1);
+  color: #fff;
+}
+
 .nav-group.animating .circle-list {
   overflow: hidden;
 }
@@ -532,7 +537,8 @@ body.app {
 
 /* ---------- Create-circle dialog ---------- */
 
-#circle-dialog {
+#circle-dialog,
+#edit-dialog {
   width: min(460px, calc(100% - 32px));
   max-height: min(640px, calc(100dvh - 48px));
   margin: auto;
@@ -556,7 +562,8 @@ body.app {
   }
 }
 
-#circle-form {
+#circle-form,
+#edit-form {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -575,7 +582,8 @@ body.app {
   text-transform: none;
 }
 
-#circle-dialog .dlg-foot {
+#circle-dialog .dlg-foot,
+#edit-dialog .dlg-foot {
   gap: 10px;
 }
 
@@ -675,7 +683,8 @@ body.app {
     padding: 16px;
   }
 
-  #circle-dialog .dlg-foot {
+  #circle-dialog .dlg-foot,
+#edit-dialog .dlg-foot {
     & .btn-ghost,
     & .btn-solid {
       flex: 1;

@@ -115,9 +115,7 @@ function isMissingTable(error) {
 }
 
 function openCircle(circle) {
-  // TODO: once circle pages exist, replace with:
-  // window.location.href = 'circle.html?id=' + circle.id;
-  window.alert('“' + circle.name + '” will open here once circle pages are built.');
+  window.location.href = 'circle.html?id=' + encodeURIComponent(circle.id);
 }
 
 /* ---------- Sidebar drawer ---------- */
@@ -173,6 +171,8 @@ function buildCirclesDrawer() {
   });
 }
 
+const activeCircleId = new URLSearchParams(window.location.search).get('id');
+
 function renderDrawer() {
   const list = document.getElementById('circle-list-items');
   if (!list) return;
@@ -193,6 +193,7 @@ function renderDrawer() {
     const button = el('button', 'circle-link');
     button.type = 'button';
     button.title = circle.name;
+    if (circle.id === activeCircleId) button.classList.add('active');
 
     const swatch = el('span', 'swatch');
     swatch.style.background = colorFor(circle);
@@ -226,7 +227,7 @@ function circleCard(circle) {
   // Top row: who's on duty (placeholder until shifts are connected) + role pill
   const top = el('div', 'circle-top');
   const duty = el('span', 'duty');
-  duty.append(el('span', 'duty-dot'), el('span', '', 'On duty: No one'));
+  duty.append(el('span', 'duty-dot'), el('span', '', 'On duty: No one assigned'));
   top.appendChild(duty);
   if (currentUser && circle.created_by === currentUser.id) {
     top.appendChild(el('span', 'tag-owner', 'Owner'));
