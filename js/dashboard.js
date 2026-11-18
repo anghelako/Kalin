@@ -123,6 +123,10 @@ function openCircle(circle) {
 /* ---------- Sidebar drawer ---------- */
 
 function setDrawerOpen(group, open) {
+  // Hide the list's scrollbar while the open/close animation runs
+  group.classList.add('animating');
+  clearTimeout(group._animTimer);
+  group._animTimer = setTimeout(() => group.classList.remove('animating'), 300);
   group.classList.toggle('collapsed', !open);
   group.querySelector('.nav-toggle').setAttribute('aria-expanded', String(open));
   try {
@@ -143,7 +147,6 @@ function buildCirclesDrawer() {
             aria-expanded="true" aria-controls="circles-drawer" title="Circles">
       ${ICON_CIRCLES}
       <span>Circles</span>
-      <span class="count" id="circles-count">–</span>
       ${ICON_CHEVRON}
     </button>
     <div class="circle-drawer" id="circles-drawer">
@@ -172,11 +175,9 @@ function buildCirclesDrawer() {
 
 function renderDrawer() {
   const list = document.getElementById('circle-list-items');
-  const count = document.getElementById('circles-count');
-  if (!list || !count) return;
+  if (!list) return;
 
   list.replaceChildren();
-  count.textContent = circlesState === 'ready' ? String(circles.length) : '–';
 
   if (circlesState !== 'ready') {
     list.appendChild(el('li', 'circle-note', circlesState === 'loading' ? 'Loading…' : 'Couldn’t load circles'));
@@ -222,20 +223,20 @@ function circleCard(circle) {
   const card = el('button', 'circle-card');
   card.type = 'button';
 
-  const badge = el('span', 'circle-badge', initialOf(circle.name));
-  badge.style.background = colorFor(circle);
-
-  const info = el('div');
-  info.appendChild(el('h3', '', circle.name));
-  if (circle.description) info.appendChild(el('p', 'circle-desc', circle.description));
-
-  const meta = el('div', 'circle-meta');
-  meta.appendChild(el('span', '', circle.members === 1 ? '1 member' : circle.members + ' members'));
+  // Top row: who's on duty (placeholder until shifts are connected) + role pill
+  const top = el('div', 'circle-top');
+  const duty = el('span', 'duty');
+  duty.append(el('span', 'duty-dot'), el('span', '', 'On duty: No one'));
+  top.appendChild(duty);
   if (currentUser && circle.created_by === currentUser.id) {
-    meta.appendChild(el('span', 'tag-owner', 'Owner'));
+    top.appendChild(el('span', 'tag-owner', 'Owner'));
   }
 
-  card.append(badge, info, meta);
+  const info = el('div');
+  info.appendChild(el('h3', '', circle.name + '’s care circle'));
+  if (circle.description) info.appendChild(el('p', 'circle-desc', circle.description));
+
+  card.append(top, info);
   card.addEventListener('click', () => openCircle(circle));
   return card;
 }
