@@ -2,8 +2,6 @@
    el(), colorFor(), loadCircles(), window.kalinReady and the sidebar. */
 (function () {
   const root = document.getElementById('circle-root');
-  const titleEl = document.getElementById('circle-title');
-  const subEl = document.getElementById('circle-sub');
   const circleId = new URLSearchParams(window.location.search).get('id');
 
   let thisCircle = null; // { id, name, description, created_by, created_at, circle_members: [...] }
@@ -131,17 +129,98 @@
 
   /* ---------- Render ---------- */
 
+  /* ---------- Header card: name, description, members, who's on duty ---------- */
+
+  /* ---------- Settings menu (owner only; delete for now) ---------- */
+
+  const ICON_GEAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3h0a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5h0a1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8v0a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>';
+  const ICON_TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6"/></svg>';
+
+  function settingsMenu() {
+    const wrap = el('div', 'settings');
+
+    const button = el('button', 'settings-btn');
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Circle settings');
+    button.setAttribute('aria-haspopup', 'menu');
+    button.setAttribute('aria-expanded', 'false');
+    button.innerHTML = ICON_GEAR;
+
+    const menu = el('div', 'settings-menu');
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
+
+    const del = el('button', 'settings-item danger');
+    del.type = 'button';
+    del.setAttribute('role', 'menuitem');
+    del.innerHTML = ICON_TRASH;
+    del.appendChild(el('span', '', 'Delete circle'));
+    del.addEventListener('click', () => {
+      setOpen(false);
+      deleteCircle();
+    });
+    menu.appendChild(del);
+
+    function setOpen(open) {
+      menu.hidden = !open;
+      button.setAttribute('aria-expanded', String(open));
+    }
+
+    button.addEventListener('click', e => {
+      e.stopPropagation();
+      setOpen(menu.hidden);
+    });
+    document.addEventListener('click', e => {
+      if (!wrap.contains(e.target)) setOpen(false);
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') setOpen(false);
+    });
+
+    wrap.append(button, menu);
+    return wrap;
+  }
+
+  /* ---------- Placeholder sections (not connected yet) ---------- */
+
+  function placeholder(cls, title, text) {
+    const { section } = card(title, text);
+    section.classList.add('slot', cls);
+    section.appendChild(el('p', 'empty', 'Coming soon'));
+    return section;
+  }
+
+  function placeholderGrid() {
+    const grid = el('div', 'circle-slots');
+    grid.append(
+      placeholder('slot-todo', 'To do', 'Tasks for this circle'),
+      placeholder('slot-ai', 'AI log', 'Summaries of recent activity'),
+      placeholder('slot-meds', 'Medication', 'Doses and schedules'),
+      placeholder('slot-board', 'Shift volunteering board', 'Open shifts members can pick up')
+    );
+    return grid;
+  }
+
+  function headerCard() {
+    const section = el('section', 'circle-hero');
+    if (isOwner()) section.appendChild(settingsMenu());
+
+    const title = el('h1', 'hero-title', thisCircle.name + '’s care circle');
+    section.appendChild(title);
+    if (thisCircle.description) section.appendChild(el('p', 'hero-desc', thisCircle.description));
+
+    // Who's on duty (placeholder until shifts are connected)
+    const duty = el('div', 'duty');
+    duty.append(el('span', 'duty-dot'), el('span', '', 'On duty: No one assigned'));
+    section.appendChild(duty);
+    return section;
+  }
+
   function render() {
     document.title = thisCircle.name + '’s care circle · Kalin';
-    titleEl.textContent = thisCircle.name + '’s care circle';
-    subEl.textContent = thisCircle.description || '';
-    subEl.hidden = !thisCircle.description;
-
-    root.replaceChildren();
-    const grid = el('div', 'circle-page-grid');
-    grid.append(dutyCard(), weekCard(), membersCard());
-    if (isOwner()) grid.appendChild(settingsCard());
-    root.appendChild(grid);
+    const page = el('div', 'circle-layout');
+    page.append(headerCard(), placeholderGrid());
+    root.replaceChildren(page);
   }
 
   /* ---------- Load ---------- */
@@ -151,7 +230,6 @@
     if (!user || !client) return;
 
     if (!circleId) {
-      titleEl.textContent = 'Circle not found';
       return showMessage('No circle selected', 'Pick a circle from the sidebar or the Home page.', true);
     }
 
@@ -163,11 +241,9 @@
 
     if (error) {
       console.error('Could not load circle:', error);
-      titleEl.textContent = 'Something went wrong';
       return showMessage('Couldn’t load this circle', 'Check your connection and refresh the page.', true);
     }
     if (!data) {
-      titleEl.textContent = 'Circle not found';
       return showMessage('Circle not found', 'It may have been deleted, or you may not be a member.', true);
     }
 

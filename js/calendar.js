@@ -1,4 +1,3 @@
-
 /* =========================================================
    KALIN CALENDAR
    One week at a time, Monday through Sunday.
@@ -119,7 +118,7 @@ async function loadShifts(dates) {
   return [];
 }
 
-async function loadCircles() {
+async function loadCalendarCircles() {
   /*
     Connect this to the circles the signed-in user belongs to.
 
@@ -154,7 +153,7 @@ async function setShift(id, take) {
    CIRCLE COLORS
 ========================================================= */
 
-function colorFor(circle) {
+function calendarColorFor(circle) {
   if (!state.colors.has(circle)) {
     state.colors.set(
       circle,
@@ -188,7 +187,7 @@ function visible(shift) {
 ========================================================= */
 
 function cardHtml(shift) {
-  const color = colorFor(shift.circle);
+  const color = calendarColorFor(shift.circle);
 
   const style =
     `--c:${color.c};` +
@@ -406,7 +405,7 @@ function renderView() {
   /* Circle options */
   const circleOptions = names.length
     ? names.map((name) =>
-        optionHtml('c:' + name, name, countFor(name), colorFor(name).c)
+        optionHtml('c:' + name, name, countFor(name), calendarColorFor(name).c)
       ).join('')
     : `<p class="drawer-empty">
          You haven't joined any circles yet.
@@ -528,14 +527,14 @@ async function load() {
   note.textContent = 'Loading shifts…';
 
   try {
-    state.circles = (await loadCircles()).map((circle) => circle.name);
+    state.circles = (await loadCalendarCircles()).map((circle) => circle.name);
 
     state.shifts = await loadShifts(
       weekDates(state.weekStart)
     );
 
     state.shifts.forEach((shift) => {
-      colorFor(shift.circle);
+      calendarColorFor(shift.circle);
     });
 
     render();
