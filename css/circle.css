@@ -565,3 +565,41 @@
 .btn-solid.small {
   white-space: nowrap;
 }
+
+/* Shift volunteering board */
+
+.board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.board-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--field);
+}
+
+.board-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  & strong {
+    font: 700 14px var(--body);
+  }
+}
+
+.slot-board .panel-head {
+  align-items: center;
+}

@@ -166,3 +166,65 @@
   .week-nav { grid-column: 1; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) { .wg-cell, .calendar-week-btn, .shift-btn, .view-panel, .view-btn .chev, .opt { transition: none; } }
+/* Status line + owner controls */
+
+.cal-status {
+  margin: 0 0 12px;
+  color: var(--teal);
+  font: 600 13px var(--body);
+
+  &.is-error {
+    color: var(--danger);
+  }
+}
+
+.shift {
+  position: relative;
+}
+
+.sh-del {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: 400 16px/1 var(--body);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(180, 35, 24, .12);
+    color: var(--danger);
+  }
+}
+
+#shift-dialog .dlg-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--ink);
+  font: 400 14px var(--body);
+
+  &:focus {
+    outline: 2px solid var(--mint);
+    background: #fff;
+  }
+}
+
+.btn-create[hidden] {
+  display: none;
+}
+
+/* Tag + YOU pill + delete button can be wider than a narrow day column: let them wrap */
+.shift-top {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.sh-tag {
+  flex-shrink: 0;
+}

@@ -47,6 +47,11 @@
     </div>
 
     <div class="top-actions">
+      <button type="button" class="btn-create" id="create-shift" hidden>
+        <span>Create shift</span>
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+
       <button type="button" class="calendar-week-btn" id="this-week" aria-label="Go to this week" data-tooltip="This week">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h3M8 17h7"/></svg>
       </button>
@@ -93,6 +98,8 @@
           </div>
         </div>
 
+        <p class="cal-status" id="cal-status" role="status" hidden></p>
+
         <div class="grid-scroll">
           <div class="week-grid" id="week-grid"></div>
         </div>
@@ -102,6 +109,57 @@
     </div>
   </main>
 </div>
+
+<!-- Create shift (circle owners) -->
+<dialog id="shift-dialog" aria-labelledby="shift-dialog-title">
+  <form id="shift-form" novalidate>
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow">New</span>
+        <h3 id="shift-dialog-title">Create a shift</h3>
+      </div>
+      <button type="button" class="dlg-close" id="shift-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <p>Shifts start open. Members of the circle can volunteer for them.</p>
+
+      <label class="l" for="shift-circle">Circle</label>
+      <select class="dlg-input" id="shift-circle"></select>
+
+      <label class="l" for="shift-date">Date</label>
+      <input class="dlg-input" id="shift-date" type="date">
+
+      <label class="l" for="shift-slot">Shift</label>
+      <select class="dlg-input" id="shift-slot">
+        <option value="morning">Morning · 7:00 AM – 3:00 PM</option>
+        <option value="evening">Evening · 3:00 PM – 10:00 PM</option>
+        <option value="both">Both shifts</option>
+      </select>
+
+      <label class="l" for="shift-repeat">Repeat</label>
+      <select class="dlg-input" id="shift-repeat">
+        <option value="none">Does not repeat</option>
+        <option value="daily">Every day</option>
+        <option value="weekly">Same weekday every week</option>
+      </select>
+
+      <div id="shift-weeks-row" hidden>
+        <label class="l" for="shift-weeks">For how many weeks <span class="opt">(1–12)</span></label>
+        <input class="dlg-input" id="shift-weeks" type="number" min="1" max="12" value="4">
+      </div>
+
+      <p class="hint nomatch" id="shift-error" role="alert"></p>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" id="shift-cancel">Cancel</button>
+      <button type="submit" class="btn-solid" id="shift-save">Create shift</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>

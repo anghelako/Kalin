@@ -441,6 +441,190 @@
     flashStatus('Note saved.');
   });
 
+  /* ---------- Shifts: who's on duty + volunteering board ---------- */
+
+  const SLOT_INFO = {
+    morning: { name: 'Morning shift', time: '7:00 AM – 3:00 PM', from: 7, to: 15, order: 0 },
+    evening: { name: 'Evening shift', time: '3:00 PM – 10:00 PM', from: 15, to: 22, order: 1 }
+  };
+  const BOARD_DAYS = 14;
+
+  let dutyDot = null;
+  let dutyText = null;
+  let boardListEl = null;
+  let boardStatusEl = null;
+  let boardTimer = null;
+  let boardBusy = false;
+
+  function localYmd(date) {
+    return date.getFullYear() + '-' +
+      String(date.getMonth() + 1).padStart(2, '0') + '-' +
+      String(date.getDate()).padStart(2, '0');
+  }
+
+  function currentSlot(now) {
+    const hour = now.getHours() + now.getMinutes() / 60;
+    return Object.keys(SLOT_INFO).find(key => hour >= SLOT_INFO[key].from && hour < SLOT_INFO[key].to) || null;
+  }
+
+  function nameOf(row) {
+    if (row.assigned_to && currentUser && row.assigned_to === currentUser.id) {
+      const meta = currentUser.user_metadata || {};
+      const full = (meta.full_name || meta.name || (currentUser.email || '').split('@')[0] || 'You').trim();
+      return full + ' (you)';
+    }
+    return (row.profiles && row.profiles.full_name) || 'Member';
+  }
+
+  function setDuty(name) {
+    if (!dutyText || !dutyDot) return;
+    dutyText.textContent = 'On duty: ' + (name || 'No one assigned');
+    dutyDot.classList.toggle('on', !!name);
+  }
+
+  async function loadDuty() {
+    if (!thisCircle) return;
+    const now = new Date();
+    const slot = currentSlot(now);
+    if (!slot) { setDuty(null); return; }
+
+    const { data, error } = await client
+      .from('shifts')
+      .select('assigned_to, profiles:assigned_to(full_name)')
+      .eq('circle_id', thisCircle.id)
+      .eq('shift_date', localYmd(now))
+      .eq('slot', slot)
+      .not('assigned_to', 'is', null)
+      .limit(1);
+
+    if (error) {
+      console.error('Could not load who is on duty:', error);
+      return; // keep whatever is shown rather than claiming no one is on duty
+    }
+    setDuty(data && data.length ? nameOf(data[0]) : null);
+  }
+
+  function boardStatus(text, isError) {
+    if (!boardStatusEl) return;
+    clearTimeout(boardTimer);
+    boardStatusEl.textContent = text || '';
+    boardStatusEl.classList.toggle('is-error', !!isError);
+    if (text && !isError) boardTimer = setTimeout(() => { boardStatusEl.textContent = ''; }, 3500);
+  }
+
+  function boardDayLabel(value) {
+    const [y, m, d] = value.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  async function volunteerFor(shiftId) {
+    if (boardBusy) return;
+    boardBusy = true;
+    boardStatus('');
+    renderBoard(boardRows, true);
+
+    const { error } = await client.rpc('claim_shift', { shift_id: shiftId });
+    boardBusy = false;
+
+    if (error) {
+      console.error('Could not volunteer:', error);
+      boardStatus(
+        error.code === 'P0001' && error.message ? error.message : 'Something went wrong. Please try again.',
+        true
+      );
+    } else {
+      boardStatus('You volunteered for this shift.');
+    }
+    await loadBoard();
+    loadDuty();
+  }
+
+  let boardRows = [];
+  let boardState = 'loading';
+  let boardError = '';
+
+  function renderBoard(rows, disabled) {
+    if (!boardListEl) return;
+    boardListEl.replaceChildren();
+
+    if (boardState === 'loading') { boardListEl.appendChild(el('p', 'empty', 'Loading…')); return; }
+    if (boardState === 'error') { boardListEl.appendChild(el('p', 'empty', boardError)); return; }
+    if (!rows.length) {
+      boardListEl.appendChild(el('p', 'empty', 'No open shifts in the next two weeks.'));
+      return;
+    }
+
+    const list = el('ul', 'board-list');
+    rows.forEach(row => {
+      const info = SLOT_INFO[row.slot];
+      const item = el('li', 'board-item');
+
+      const text = el('div', 'board-text');
+      text.append(
+        el('strong', '', boardDayLabel(row.shift_date)),
+        el('span', 'muted', info.name + ' · ' + info.time)
+      );
+
+      const button = el('button', 'btn-solid small', 'Volunteer');
+      button.type = 'button';
+      button.disabled = !!disabled;
+      button.addEventListener('click', () => volunteerFor(row.id));
+
+      item.append(text, button);
+      list.appendChild(item);
+    });
+    boardListEl.appendChild(list);
+  }
+
+  async function loadBoard() {
+    if (!thisCircle) return;
+    const start = new Date();
+    const end = new Date();
+    end.setDate(end.getDate() + BOARD_DAYS - 1);
+
+    const { data, error } = await client
+      .from('shifts')
+      .select('id, shift_date, slot')
+      .eq('circle_id', thisCircle.id)
+      .is('assigned_to', null)
+      .gte('shift_date', localYmd(start))
+      .lte('shift_date', localYmd(end))
+      .order('shift_date', { ascending: true });
+
+    if (error) {
+      console.error('Could not load open shifts:', error);
+      boardError = isMissingTable(error)
+        ? 'The shift tables don’t exist in Supabase yet. Run shifts_setup.sql first.'
+        : 'Couldn’t load open shifts. Try refreshing the page.';
+      boardState = 'error';
+    } else {
+      boardRows = data.slice().sort((a, b) =>
+        a.shift_date === b.shift_date
+          ? SLOT_INFO[a.slot].order - SLOT_INFO[b.slot].order
+          : (a.shift_date < b.shift_date ? -1 : 1)
+      );
+      boardState = 'ready';
+    }
+    renderBoard(boardRows, false);
+  }
+
+  function boardCard() {
+    const { section, head } = card('Shift volunteering board', 'Open shifts in the next two weeks');
+    section.classList.add('slot', 'slot-board');
+
+    const calendarLink = el('a', 'btn-ghost small link-btn', 'Calendar');
+    calendarLink.href = 'calendar.html';
+    head.appendChild(calendarLink);
+
+    boardStatusEl = el('p', 'ai-status');
+    boardStatusEl.setAttribute('role', 'status');
+    boardListEl = el('div', 'ai-list');
+    section.append(boardStatusEl, boardListEl);
+
+    renderBoard(boardRows, false);
+    return section;
+  }
+
   /* ---------- Placeholder sections (not connected yet) ---------- */
 
   function placeholder(cls, title, text) {
@@ -456,7 +640,7 @@
       placeholder('slot-todo', 'To do', 'Tasks for this circle'),
       aiLogCard(),
       placeholder('slot-meds', 'Medication', 'Doses and schedules'),
-      placeholder('slot-board', 'Shift volunteering board', 'Open shifts members can pick up')
+      boardCard()
     );
     return grid;
   }
@@ -469,9 +653,11 @@
     section.appendChild(title);
     if (thisCircle.description) section.appendChild(el('p', 'hero-desc', thisCircle.description));
 
-    // Who's on duty (placeholder until shifts are connected)
+    // Who's on duty right now (filled in by loadDuty)
     const duty = el('div', 'duty');
-    duty.append(el('span', 'duty-dot'), el('span', '', 'On duty: No one assigned'));
+    dutyDot = el('span', 'duty-dot');
+    dutyText = el('span', '', 'On duty: No one assigned');
+    duty.append(dutyDot, dutyText);
     section.appendChild(duty);
     return section;
   }
@@ -510,6 +696,9 @@
     thisCircle = data;
     render();
     loadAiLog();
+    loadDuty();
+    loadBoard();
+    setInterval(loadDuty, 60000); // keep "on duty" current across shift changes
   }
 
   /* ---------- Edit dialog ---------- */

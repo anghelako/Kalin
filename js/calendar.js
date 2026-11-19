@@ -22,11 +22,13 @@ const SLOTS = [
 
 /* Circle colors */
 const PALETTE = [
+  /* Same order as CIRCLE_COLORS in dashboard.js (mint, lavender, blue, peach, pink)
+     so a circle keeps the same hue in the sidebar and in the calendar. */
   { c: '#0d9488', bg: '#f0fdfa', line: '#99f6e4' },
   { c: '#4f46e5', bg: '#eef2ff', line: '#c7d2fe' },
-  { c: '#e11d48', bg: '#fff1f2', line: '#fecdd3' },
   { c: '#0284c7', bg: '#f0f9ff', line: '#bae6fd' },
-  { c: '#7c3aed', bg: '#f5f3ff', line: '#ddd6fe' }
+  { c: '#ea580c', bg: '#fff7ed', line: '#fed7aa' },
+  { c: '#e11d48', bg: '#fff1f2', line: '#fecdd3' }
 ];
 
 /* Calendar state */
@@ -34,6 +36,7 @@ const state = {
   weekStart: startOfWeek(new Date()),
   filter: 'all',
   circles: [],
+  circleList: [],   // [{ id, name, owned }]
   shifts: [],
   me: 'You',
   colors: new Map()
@@ -96,57 +99,123 @@ function weekDates(start) {
    No sample or generated data.
 ========================================================= */
 
+let shiftBusy = false;
+let calStatusTimer = null;
+
+function calSetStatus(text, isError) {
+  const box = $('cal-status');
+  if (!box) return;
+
+  clearTimeout(calStatusTimer);
+  box.textContent = text || '';
+  box.hidden = !text;
+  box.classList.toggle('is-error', !!isError);
+
+  if (text && !isError) {
+    calStatusTimer = setTimeout(() => { box.hidden = true; box.textContent = ''; }, 4000);
+  }
+}
+
+/* Shows our own database messages (P0001 = a raise exception in SQL) and
+   keeps every other error generic. */
+function calFriendlyError(error, fallback) {
+  if (error && isMissingTable(error)) {
+    return 'The shift tables are not set up in Supabase yet. Run supabase/shifts_setup.sql first.';
+  }
+  if (error && error.code === 'P0001' && error.message) return error.message;
+  return fallback;
+}
+
+function calLoadError(error, fallback) {
+  const wrapped = new Error(error && error.message ? error.message : fallback);
+  wrapped.friendly = calFriendlyError(error, fallback);
+  return wrapped;
+}
+
 async function loadShifts(dates) {
-  /*
-    Connect your actual Supabase shifts table here.
+  /* RLS returns only shifts of circles the user belongs to. */
+  const { data, error } = await client
+    .from('shifts')
+    .select('id, shift_date, slot, assigned_to, circle_id, circles(name), profiles:assigned_to(full_name)')
+    .gte('shift_date', ymd(dates[0]))
+    .lte('shift_date', ymd(dates[dates.length - 1]))
+    .order('shift_date', { ascending: true });
 
-    Expected shift structure:
+  if (error) throw calLoadError(error, 'We could not load the calendar. Please refresh and try again.');
 
-    {
-      id: "shift-id",
-      date: "2026-11-18",
-      slot: "morning",
-      circle: "Circle name",
-      person: "Volunteer name",
-      mine: false
-    }
+  const owned = new Set(state.circleList.filter((c) => c.owned).map((c) => c.id));
 
-    Until the real database query is configured,
-    the calendar remains empty.
-  */
-
-  return [];
+  return data.map((row) => ({
+    id: row.id,
+    date: row.shift_date,
+    slot: row.slot,
+    circle: row.circles ? row.circles.name : 'Circle',
+    circleId: row.circle_id,
+    person: row.assigned_to
+      ? ((row.profiles && row.profiles.full_name) || 'Member')
+      : '',
+    mine: !!currentUser && row.assigned_to === currentUser.id,
+    canManage: owned.has(row.circle_id)
+  }));
 }
 
 async function loadCalendarCircles() {
-  /*
-    Connect this to the circles the signed-in user belongs to.
+  const { data, error } = await client
+    .from('circles')
+    .select('id, name, created_by')
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
 
-    Expected structure:
+  if (error) throw calLoadError(error, 'We could not load your circles. Please refresh and try again.');
 
-    [
-      { id: "circle-id", name: "Patient 1" },
-      { id: "circle-id", name: "Patient 2" }
-    ]
-
-    Every circle returned here appears in the "Viewing" dropdown,
-    even if it has no shifts this week.
-  */
-
-  return [];
+  return data.map((circle) => ({
+    id: circle.id,
+    name: circle.name,
+    owned: !!currentUser && circle.created_by === currentUser.id
+  }));
 }
 
-/* Volunteer / release action */
+/* Volunteer (take = true) or release (take = false) */
 async function setShift(id, take) {
-  /*
-    Connect this function to your actual
-    Supabase volunteer and release operations.
-  */
+  if (shiftBusy) return;
+  shiftBusy = true;
+  calSetStatus('');
 
-  console.warn(
-    'Volunteer/release database action is not configured.',
-    { id, take }
-  );
+  const { error } = await client.rpc(take ? 'claim_shift' : 'release_shift', { shift_id: id });
+  shiftBusy = false;
+
+  if (error) {
+    console.error('Shift action failed:', error);
+    calSetStatus(
+      calFriendlyError(error, 'Something went wrong. Please try again.'),
+      true
+    );
+  } else {
+    calSetStatus(take ? 'You volunteered for this shift.' : 'Shift released.');
+  }
+
+  /* Reload either way so the grid always shows the current truth
+     (for example when someone else took the shift first). */
+  await load();
+}
+
+/* Owner only: remove a shift */
+async function deleteShift(id) {
+  if (shiftBusy) return;
+  if (!window.confirm('Delete this shift? This cannot be undone.')) return;
+
+  shiftBusy = true;
+  const { data, error } = await client.from('shifts').delete().eq('id', id).select('id');
+  shiftBusy = false;
+
+  if (error || !data || !data.length) {
+    console.error('Could not delete shift:', error);
+    calSetStatus('You do not have permission to delete this shift.', true);
+  } else {
+    calSetStatus('Shift deleted.');
+  }
+
+  await load();
 }
 
 /* =========================================================
@@ -155,12 +224,15 @@ async function setShift(id, take) {
 
 function calendarColorFor(circle) {
   if (!state.colors.has(circle)) {
-    state.colors.set(
-      circle,
-      PALETTE[
-        state.colors.size % PALETTE.length
-      ]
-    );
+    let index = -1;
+
+    /* Use the same hash as the sidebar (colorFor in dashboard.js) when the circle is known */
+    const known = state.circleList.find((c) => c.name === circle);
+    if (known) index = CIRCLE_COLORS.indexOf(colorFor({ id: known.id }));
+
+    if (index < 0) index = state.colors.size % PALETTE.length;
+
+    state.colors.set(circle, PALETTE[index % PALETTE.length]);
   }
 
   return state.colors.get(circle);
@@ -197,10 +269,15 @@ function cardHtml(shift) {
   const tag =
     `<span class="sh-tag">${esc(shift.circle)}</span>`;
 
+  const del = shift.canManage
+    ? `<button type="button" class="sh-del" data-action="delete"
+         data-id="${esc(shift.id)}" aria-label="Delete shift" title="Delete shift">×</button>`
+    : '';
+
   if (!shift.person) {
     return `
       <article class="shift open" style="${style}">
-        <div class="shift-top">${tag}</div>
+        <div class="shift-top">${tag}${del}</div>
         <div class="sh-who">Open slot</div>
         <button
           type="button"
@@ -219,6 +296,7 @@ function cardHtml(shift) {
         <div class="shift-top">
           ${tag}
           <span class="sh-you">YOU</span>
+          ${del}
         </div>
 
         <div class="sh-who">
@@ -238,7 +316,7 @@ function cardHtml(shift) {
 
   return `
     <article class="shift" style="${style}">
-      <div class="shift-top">${tag}</div>
+      <div class="shift-top">${tag}${del}</div>
       <div class="sh-who">${esc(shift.person)}</div>
       <div class="sh-status">Covered</div>
     </article>
@@ -527,7 +605,11 @@ async function load() {
   note.textContent = 'Loading shifts…';
 
   try {
-    state.circles = (await loadCalendarCircles()).map((circle) => circle.name);
+    state.circleList = await loadCalendarCircles();
+    state.circles = state.circleList.map((circle) => circle.name);
+    state.colors.clear();
+
+    $('create-shift').hidden = !state.circleList.some((circle) => circle.owned);
 
     state.shifts = await loadShifts(
       weekDates(state.weekStart)
@@ -550,6 +632,7 @@ async function load() {
     note.hidden = false;
 
     note.textContent =
+      error.friendly ||
       'We could not load the calendar. Please refresh and try again.';
   }
 }
@@ -598,10 +681,143 @@ $('week-grid').addEventListener('click', (event) => {
 
   if (!button) return;
 
-  setShift(
-    button.dataset.id,
-    button.dataset.action === 'volunteer'
+  const action = button.dataset.action;
+
+  if (action === 'delete') {
+    deleteShift(button.dataset.id);
+    return;
+  }
+
+  setShift(button.dataset.id, action === 'volunteer');
+});
+
+/* =========================================================
+   CREATE SHIFT (circle owners only)
+========================================================= */
+
+const shiftDialog = $('shift-dialog');
+const shiftForm = $('shift-form');
+const MAX_SHIFT_ROWS = 200;
+
+function parseYmd(value) {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function shiftDatesFor(startValue, repeat, weeks) {
+  const start = parseYmd(startValue);
+
+  if (repeat === 'daily') {
+    return Array.from({ length: weeks * 7 }, (_, i) => ymd(addDays(start, i)));
+  }
+  if (repeat === 'weekly') {
+    return Array.from({ length: weeks }, (_, i) => ymd(addDays(start, i * 7)));
+  }
+  return [ymd(start)];
+}
+
+function openShiftDialog() {
+  const owned = state.circleList.filter((circle) => circle.owned);
+  if (!owned.length) return;
+
+  shiftForm.reset();
+  $('shift-error').textContent = '';
+
+  const select = $('shift-circle');
+  select.replaceChildren();
+  owned.forEach((circle) => {
+    const option = document.createElement('option');
+    option.value = circle.id;
+    option.textContent = circle.name;
+    select.appendChild(option);
+  });
+
+  /* Preselect the circle currently being viewed, if the person owns it */
+  if (state.filter.startsWith('c:')) {
+    const viewed = owned.find((circle) => 'c:' + circle.name === state.filter);
+    if (viewed) select.value = viewed.id;
+  }
+
+  const today = ymd(new Date());
+  $('shift-date').min = today;
+  $('shift-date').value = today;
+  $('shift-weeks-row').hidden = true;
+
+  shiftDialog.showModal();
+}
+
+$('create-shift').addEventListener('click', openShiftDialog);
+$('shift-close').addEventListener('click', () => shiftDialog.close());
+$('shift-cancel').addEventListener('click', () => shiftDialog.close());
+shiftDialog.addEventListener('click', (event) => {
+  if (event.target === shiftDialog) shiftDialog.close();
+});
+
+$('shift-repeat').addEventListener('change', () => {
+  $('shift-weeks-row').hidden = $('shift-repeat').value === 'none';
+});
+
+shiftForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const error = $('shift-error');
+  error.textContent = '';
+
+  const circleId = $('shift-circle').value;
+  const dateValue = $('shift-date').value;
+  const slotValue = $('shift-slot').value;
+  const repeat = $('shift-repeat').value;
+  const weeks = Math.min(12, Math.max(1, parseInt($('shift-weeks').value, 10) || 1));
+
+  if (!circleId) { error.textContent = 'Choose a circle.'; return; }
+  if (!dateValue) { error.textContent = 'Choose a date.'; return; }
+  if (dateValue < ymd(new Date())) { error.textContent = 'Pick today or a later date.'; return; }
+
+  const slots = slotValue === 'both' ? ['morning', 'evening'] : [slotValue];
+  const rows = [];
+
+  shiftDatesFor(dateValue, repeat, weeks).forEach((date) => {
+    slots.forEach((slot) => {
+      rows.push({ circle_id: circleId, shift_date: date, slot });
+    });
+  });
+
+  if (rows.length > MAX_SHIFT_ROWS) {
+    error.textContent = 'That is too many shifts at once (maximum ' + MAX_SHIFT_ROWS + '). Try fewer weeks.';
+    return;
+  }
+
+  const save = $('shift-save');
+  save.disabled = true;
+  save.textContent = 'Creating…';
+
+  /* Shifts that already exist are skipped, not duplicated or overwritten */
+  const { data, error: insertError } = await client
+    .from('shifts')
+    .upsert(rows, { onConflict: 'circle_id,shift_date,slot', ignoreDuplicates: true })
+    .select('id');
+
+  save.disabled = false;
+  save.textContent = 'Create shift';
+
+  if (insertError) {
+    console.error('Could not create shifts:', insertError);
+    error.textContent = calFriendlyError(insertError, 'Could not create the shifts. Please try again.');
+    return;
+  }
+
+  const created = data ? data.length : 0;
+  const skipped = rows.length - created;
+
+  shiftDialog.close();
+  calSetStatus(
+    (created === 1 ? '1 shift created.' : created + ' shifts created.') +
+    (skipped > 0 ? ' ' + skipped + ' already existed.' : '')
   );
+
+  /* Jump to the week of the first new shift */
+  state.weekStart = startOfWeek(parseYmd(dateValue));
+  await load();
 });
 
 /* =========================================================
