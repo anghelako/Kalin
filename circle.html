@@ -102,6 +102,58 @@
   </form>
 </dialog>
 
+<!-- Handoff brief (AI draft) -->
+<dialog id="brief-dialog" aria-labelledby="brief-dialog-title">
+  <form id="brief-form" method="dialog">
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow">AI draft</span>
+        <h3 id="brief-dialog-title">Handoff brief</h3>
+      </div>
+      <button type="button" class="dlg-close" id="brief-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <p class="brief-status" id="brief-status" role="status"></p>
+      <div class="brief-text" id="brief-text"></div>
+      <p class="hint">AI-generated draft. Not medical advice.</p>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" id="brief-copy" disabled>Copy</button>
+      <button type="button" class="btn-solid" id="brief-done">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Add care note -->
+<dialog id="note-dialog" aria-labelledby="note-dialog-title">
+  <form id="note-form" novalidate>
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow">New</span>
+        <h3 id="note-dialog-title">Add a care note</h3>
+      </div>
+      <button type="button" class="dlg-close" id="note-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <label class="l" for="note-body">What happened?</label>
+      <textarea class="note-input" id="note-body" maxlength="2000" rows="5" placeholder="e.g. Had breakfast at 8 and took a short walk."></textarea>
+      <p class="hint nomatch" id="note-error" role="alert"></p>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" id="note-cancel">Cancel</button>
+      <button type="submit" class="btn-solid" id="note-save">Save note</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/dashboard.js"></script>

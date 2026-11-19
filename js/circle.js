@@ -181,6 +181,266 @@
     return wrap;
   }
 
+  /* ---------- AI log, handoff brief and care notes ---------- */
+
+  const KIND_LABEL = { handoff_brief: 'Handoff brief', summary: 'Summary' };
+
+  let aiEntries = [];
+  let aiState = 'loading'; // 'loading' | 'ready' | 'error'
+  let aiError = '';
+  let aiBusy = false;
+  let aiListEl = null;
+  let aiStatusEl = null;
+  let aiStatusTimer = null;
+  let generateBtn = null;
+  let addNoteBtn = null;
+
+  const handoffBtn = document.getElementById('handoff');
+
+  function formatDateTime(value) {
+    const d = new Date(value);
+    return isNaN(d)
+      ? ''
+      : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function setAiBusy(busy) {
+    aiBusy = busy;
+    if (generateBtn) {
+      generateBtn.disabled = busy;
+      generateBtn.textContent = busy ? 'Generating…' : 'Generate summary';
+    }
+    if (handoffBtn) handoffBtn.disabled = busy;
+  }
+
+  function flashStatus(text, isError) {
+    if (!aiStatusEl) return;
+    clearTimeout(aiStatusTimer);
+    aiStatusEl.textContent = text;
+    aiStatusEl.classList.toggle('is-error', !!isError);
+    if (text && !isError) aiStatusTimer = setTimeout(() => { aiStatusEl.textContent = ''; }, 3500);
+  }
+
+  // Turns an Edge Function failure into a message that is safe to show
+  async function functionErrorMessage(error) {
+    try {
+      if (error.context && typeof error.context.json === 'function') {
+        const body = await error.context.json();
+        if (body && body.error) return String(body.error);
+      }
+    } catch (_) {
+      // fall through to the generic messages
+    }
+    if (error.name === 'FunctionsFetchError') {
+      return 'Couldn’t reach the AI service. Check your connection, and that the handoff-brief function is deployed.';
+    }
+    return 'Something went wrong. Please try again.';
+  }
+
+  async function requestAi(kind) {
+    const { data, error } = await client.functions.invoke('handoff-brief', {
+      body: { circle_id: thisCircle.id, kind }
+    });
+    if (error) {
+      console.error('AI request failed:', error);
+      return { error: await functionErrorMessage(error) };
+    }
+    if (!data || !data.body) return { error: 'The AI did not return anything. Please try again.' };
+
+    aiEntries.unshift({ id: data.id, kind, body: data.body, created_at: data.created_at });
+    aiState = 'ready';
+    renderAiList();
+    return { entry: data };
+  }
+
+  function renderAiList() {
+    if (!aiListEl) return;
+    aiListEl.replaceChildren();
+
+    if (aiState === 'loading') {
+      aiListEl.appendChild(el('p', 'empty', 'Loading…'));
+      return;
+    }
+    if (aiState === 'error') {
+      aiListEl.appendChild(el('p', 'empty', aiError));
+      return;
+    }
+    if (!aiEntries.length) {
+      aiListEl.appendChild(el('p', 'empty', 'No summaries yet'));
+      return;
+    }
+
+    const list = el('ul', 'ai-entries');
+    aiEntries.forEach(entry => {
+      const item = el('li', 'ai-entry');
+      const meta = el('div', 'ai-meta');
+      meta.append(
+        el('span', 'ai-kind', KIND_LABEL[entry.kind] || 'Summary'),
+        el('span', '', formatDateTime(entry.created_at))
+      );
+      item.append(meta, el('div', 'ai-body', entry.body));
+      list.appendChild(item);
+    });
+    aiListEl.appendChild(list);
+  }
+
+  async function loadAiLog() {
+    aiState = 'loading';
+    renderAiList();
+
+    const { data, error } = await client
+      .from('ai_log')
+      .select('id, kind, body, created_at')
+      .eq('circle_id', thisCircle.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('Could not load AI log:', error);
+      aiError = isMissingTable(error)
+        ? 'The AI log tables don’t exist in Supabase yet. Run the care_notes / ai_log SQL first.'
+        : 'Couldn’t load the AI log. Try refreshing the page.';
+      aiState = 'error';
+    } else {
+      aiEntries = data;
+      aiState = 'ready';
+    }
+    renderAiList();
+  }
+
+  function aiLogCard() {
+    const { section, head } = card('AI log', 'Summaries of recent activity');
+    section.classList.add('slot', 'slot-ai');
+
+    const actions = el('div', 'panel-actions');
+
+    addNoteBtn = el('button', 'btn-ghost small', 'Add note');
+    addNoteBtn.type = 'button';
+    addNoteBtn.addEventListener('click', openNote);
+
+    generateBtn = el('button', 'btn-solid small', 'Generate summary');
+    generateBtn.type = 'button';
+    generateBtn.disabled = aiBusy;
+    generateBtn.addEventListener('click', async () => {
+      if (aiBusy) return;
+      setAiBusy(true);
+      flashStatus('');
+      const result = await requestAi('summary');
+      setAiBusy(false);
+      if (result.error) flashStatus(result.error, true);
+    });
+
+    actions.append(addNoteBtn, generateBtn);
+    head.appendChild(actions);
+
+    aiStatusEl = el('p', 'ai-status');
+    aiStatusEl.setAttribute('role', 'status');
+    aiListEl = el('div', 'ai-list');
+    section.append(aiStatusEl, aiListEl);
+
+    renderAiList();
+    return section;
+  }
+
+  /* ----- Handoff brief dialog ----- */
+
+  const briefDialog = document.getElementById('brief-dialog');
+  const briefStatus = document.getElementById('brief-status');
+  const briefText = document.getElementById('brief-text');
+  const briefCopy = document.getElementById('brief-copy');
+
+  async function openBrief() {
+    if (!thisCircle || aiBusy) return;
+
+    briefText.textContent = '';
+    briefStatus.textContent = 'Writing the handoff brief…';
+    briefStatus.classList.remove('is-error');
+    briefCopy.disabled = true;
+    briefCopy.textContent = 'Copy';
+    briefDialog.showModal();
+
+    setAiBusy(true);
+    const result = await requestAi('handoff_brief');
+    setAiBusy(false);
+
+    if (result.error) {
+      briefStatus.textContent = result.error;
+      briefStatus.classList.add('is-error');
+      return;
+    }
+    briefStatus.textContent = '';
+    briefText.textContent = result.entry.body;
+    briefCopy.disabled = false;
+  }
+
+  if (handoffBtn) handoffBtn.addEventListener('click', openBrief);
+  document.getElementById('brief-close').addEventListener('click', () => briefDialog.close());
+  document.getElementById('brief-done').addEventListener('click', () => briefDialog.close());
+  briefDialog.addEventListener('click', e => {
+    if (e.target === briefDialog) briefDialog.close();
+  });
+
+  briefCopy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(briefText.textContent);
+      briefCopy.textContent = 'Copied';
+    } catch (_) {
+      briefCopy.textContent = 'Select the text and copy';
+    }
+    setTimeout(() => { briefCopy.textContent = 'Copy'; }, 2000);
+  });
+
+  /* ----- Add care note dialog ----- */
+
+  const noteDialog = document.getElementById('note-dialog');
+  const noteForm = document.getElementById('note-form');
+  const noteBody = document.getElementById('note-body');
+  const noteError = document.getElementById('note-error');
+  const noteSave = document.getElementById('note-save');
+
+  function openNote() {
+    noteForm.reset();
+    noteError.textContent = '';
+    noteDialog.showModal();
+    noteBody.focus();
+  }
+
+  document.getElementById('note-close').addEventListener('click', () => noteDialog.close());
+  document.getElementById('note-cancel').addEventListener('click', () => noteDialog.close());
+  noteDialog.addEventListener('click', e => {
+    if (e.target === noteDialog) noteDialog.close();
+  });
+
+  noteForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    noteError.textContent = '';
+
+    const body = noteBody.value.trim();
+    if (!body) { noteError.textContent = 'Write a note first.'; return; }
+    if (!thisCircle) return;
+
+    noteSave.disabled = true;
+    noteSave.textContent = 'Saving…';
+
+    const { error } = await client
+      .from('care_notes')
+      .insert({ circle_id: thisCircle.id, body });
+
+    noteSave.disabled = false;
+    noteSave.textContent = 'Save note';
+
+    if (error) {
+      console.error('Could not save note:', error);
+      noteError.textContent = isMissingTable(error)
+        ? 'The care_notes table doesn’t exist in Supabase yet. Run the SQL setup first.'
+        : error.message;
+      return;
+    }
+
+    noteDialog.close();
+    flashStatus('Note saved.');
+  });
+
   /* ---------- Placeholder sections (not connected yet) ---------- */
 
   function placeholder(cls, title, text) {
@@ -194,7 +454,7 @@
     const grid = el('div', 'circle-slots');
     grid.append(
       placeholder('slot-todo', 'To do', 'Tasks for this circle'),
-      placeholder('slot-ai', 'AI log', 'Summaries of recent activity'),
+      aiLogCard(),
       placeholder('slot-meds', 'Medication', 'Doses and schedules'),
       placeholder('slot-board', 'Shift volunteering board', 'Open shifts members can pick up')
     );
@@ -249,6 +509,7 @@
 
     thisCircle = data;
     render();
+    loadAiLog();
   }
 
   /* ---------- Edit dialog ---------- */

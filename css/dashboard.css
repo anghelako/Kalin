@@ -538,7 +538,9 @@ body.app {
 /* ---------- Create-circle dialog ---------- */
 
 #circle-dialog,
-#edit-dialog {
+#edit-dialog,
+#brief-dialog,
+#note-dialog {
   width: min(460px, calc(100% - 32px));
   max-height: min(640px, calc(100dvh - 48px));
   margin: auto;
@@ -563,7 +565,9 @@ body.app {
 }
 
 #circle-form,
-#edit-form {
+#edit-form,
+#brief-form,
+#note-form {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -583,7 +587,9 @@ body.app {
 }
 
 #circle-dialog .dlg-foot,
-#edit-dialog .dlg-foot {
+#edit-dialog .dlg-foot,
+#brief-dialog .dlg-foot,
+#note-dialog .dlg-foot {
   gap: 10px;
 }
 
@@ -684,7 +690,9 @@ body.app {
   }
 
   #circle-dialog .dlg-foot,
-#edit-dialog .dlg-foot {
+  #edit-dialog .dlg-foot,
+  #brief-dialog .dlg-foot,
+  #note-dialog .dlg-foot {
     & .btn-ghost,
     & .btn-solid {
       flex: 1;

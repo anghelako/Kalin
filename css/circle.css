@@ -438,3 +438,130 @@
     background: var(--field);
   }
 }
+
+/* AI log, handoff brief, notes */
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-solid.small {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.ai-status {
+  min-height: 0;
+  margin: 0;
+  color: var(--teal);
+  font: 600 13px var(--body);
+
+  &:empty {
+    display: none;
+  }
+
+  &.is-error {
+    color: var(--danger);
+  }
+}
+
+.ai-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ai-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 420px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.ai-entry {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--field);
+}
+
+.ai-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ai-kind {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.ai-body,
+.brief-text {
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.brief-text:empty {
+  display: none;
+}
+
+.brief-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+
+  &:empty {
+    display: none;
+  }
+
+  &.is-error {
+    color: var(--danger);
+  }
+}
+
+.note-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--ink);
+  font: 400 14px/1.5 var(--body);
+  resize: vertical;
+
+  &:focus {
+    outline: 2px solid var(--mint);
+    background: #fff;
+  }
+}
+
+/* The AI log column is narrow: stack its header and keep buttons on one line */
+.slot-ai .panel-head {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.slot-ai .panel-actions {
+  justify-content: flex-start;
+}
+
+.btn-ghost.small,
+.btn-solid.small {
+  white-space: nowrap;
+}
