@@ -645,6 +645,36 @@
     return grid;
   }
 
+  /* ---------- Invite code (owner only) ---------- */
+
+  let inviteSlot = null;
+
+  async function fillInvite() {
+    if (!inviteSlot) return;
+
+    if (!thisCircle.invite_code) {
+      const { data, error } = await client
+        .from('circles')
+        .select('invite_code')
+        .eq('id', thisCircle.id)
+        .maybeSingle();
+
+      if (error || !data || !data.invite_code) {
+        // Invite codes aren't set up yet (circles_join_setup.sql not run)
+        console.warn('Invite code not available:', error);
+        inviteSlot.hidden = true;
+        return;
+      }
+      thisCircle.invite_code = data.invite_code;
+    }
+
+    inviteSlot.replaceChildren(
+      el('span', 'invite-label', 'Invite code'),
+      codeChip(thisCircle),
+      el('span', 'invite-hint', 'Share it with people you want to add. You’ll approve each request from Home.')
+    );
+  }
+
   function headerCard() {
     const section = el('section', 'circle-hero');
     if (isOwner()) section.appendChild(settingsMenu());
@@ -659,6 +689,12 @@
     dutyText = el('span', '', 'On duty: No one assigned');
     duty.append(dutyDot, dutyText);
     section.appendChild(duty);
+
+    if (isOwner()) {
+      inviteSlot = el('div', 'invite-row');
+      section.appendChild(inviteSlot);
+      fillInvite();
+    }
     return section;
   }
 

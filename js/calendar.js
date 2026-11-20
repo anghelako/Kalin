@@ -168,10 +168,23 @@ async function loadCalendarCircles() {
 
   if (error) throw calLoadError(error, 'We could not load your circles. Please refresh and try again.');
 
+  /* My personal color for each circle (circle_members.color). If the colors SQL
+     update hasn't been run yet this fails quietly and the old colors are used. */
+  const personal = new Map();
+  if (currentUser) {
+    const mine = await client
+      .from('circle_members')
+      .select('circle_id, color')
+      .eq('user_id', currentUser.id);
+
+    if (!mine.error) mine.data.forEach((row) => personal.set(row.circle_id, row.color));
+  }
+
   return data.map((circle) => ({
     id: circle.id,
     name: circle.name,
-    owned: !!currentUser && circle.created_by === currentUser.id
+    owned: !!currentUser && circle.created_by === currentUser.id,
+    color: personal.get(circle.id) || null
   }));
 }
 
@@ -222,17 +235,31 @@ async function deleteShift(id) {
    CIRCLE COLORS
 ========================================================= */
 
+/* Turns a pastel circle color into the three tones the calendar uses */
+function calendarShades(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const channels = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const mix = (amount, target) => '#' + channels
+    .map((v) => Math.round(v + (target - v) * amount).toString(16).padStart(2, '0'))
+    .join('');
+
+  return { c: mix(0.55, 0), bg: mix(0.82, 255), line: mix(0.5, 255) };
+}
+
 function calendarColorFor(circle) {
   if (!state.colors.has(circle)) {
-    let index = -1;
-
-    /* Use the same hash as the sidebar (colorFor in dashboard.js) when the circle is known */
     const known = state.circleList.find((c) => c.name === circle);
-    if (known) index = CIRCLE_COLORS.indexOf(colorFor({ id: known.id }));
 
-    if (index < 0) index = state.colors.size % PALETTE.length;
-
-    state.colors.set(circle, PALETTE[index % PALETTE.length]);
+    if (known && known.color) {
+      /* Same personal color as the sidebar dot and the Home card */
+      state.colors.set(circle, calendarShades(known.color));
+    } else {
+      /* No stored color yet: use the old hash so nothing breaks */
+      let index = -1;
+      if (known) index = CIRCLE_COLORS.indexOf(colorFor({ id: known.id }));
+      if (index < 0) index = state.colors.size % PALETTE.length;
+      state.colors.set(circle, PALETTE[index % PALETTE.length]);
+    }
   }
 
   return state.colors.get(circle);

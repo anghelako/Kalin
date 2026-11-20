@@ -718,3 +718,364 @@ body.app {
     animation: none;
   }
 }
+
+
+/* =====================================================================
+   Circle colors, join with a code, join requests
+   (added after the base styles on purpose: keep this block at the end)
+   ===================================================================== */
+
+/* Small buttons (circle.css has its own copy for the circle page) */
+
+.btn-ghost.small,
+.btn-solid.small {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Home: circle card title with its personal color dot */
+
+.circle-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.circle-dot {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.circle-card.pending {
+  border-style: dashed;
+  background: var(--field);
+  cursor: default;
+
+  &:hover {
+    border-color: var(--line);
+    box-shadow: none;
+    transform: none;
+  }
+}
+
+.tag-wait {
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: #fff1cc;
+  color: #8a5a00;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.widget-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Invite code chip (Home dialog helpers and the owner's circle page) */
+
+.code-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px dashed #b9c4d6;
+  border-radius: 10px;
+  background: #fff;
+  color: #4a566e;
+  font: 600 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+
+  & svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover,
+  &.copied {
+    border-color: var(--teal);
+    color: var(--teal);
+  }
+
+  &.copied {
+    border-style: solid;
+  }
+}
+
+.invite-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.invite-label {
+  color: #3b465c;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.invite-hint {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* Join requests (owner) */
+
+.requests {
+  margin-bottom: 18px;
+  border-color: rgba(15, 118, 110, .35);
+  background: #f5fcfa;
+}
+
+.request-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid rgba(15, 118, 110, .15);
+}
+
+.req-avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--lav);
+  color: var(--navy-950);
+  font: 800 16px var(--display);
+}
+
+.req-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.req-title {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.req-sub {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.req-error {
+  margin-top: 4px;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.req-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* The create/join dialog is a little taller than the other dialogs */
+
+#circle-dialog {
+  max-height: min(720px, calc(100dvh - 32px));
+}
+
+/* Dialog: Create / Join tabs */
+
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 18px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--field);
+}
+
+.seg-tab {
+  height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: #4a566e;
+  font: 600 13.5px var(--body);
+  cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s;
+
+  &[aria-selected="true"] {
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(10, 15, 30, .12);
+    color: var(--ink);
+  }
+}
+
+/* Dialog: create tab */
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  & .field {
+    flex: 1;
+  }
+}
+
+.badge-preview {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--preview, #8fe3c8);
+  color: var(--navy-950);
+  font: 800 20px var(--display);
+  transition: background .2s;
+}
+
+.color-block {
+  margin-top: 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--field);
+}
+
+.color-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 13px;
+
+  & strong {
+    color: var(--ink);
+  }
+}
+
+.color-label {
+  color: #3b465c;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.swatch-dot {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--c);
+
+  &.taken {
+    opacity: .3;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      margin: auto;
+      width: 10px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--navy-900);
+      transform: rotate(-45deg);
+    }
+  }
+
+  &.next {
+    outline: 2px solid var(--navy-900);
+    outline-offset: 2px;
+  }
+}
+
+.color-note {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* Dialog: join tab */
+
+.field.plain .code-input {
+  height: 58px;
+  padding: 0 14px;
+  font: 700 22px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .2em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.join-sent {
+  padding: 10px 0 18px;
+  text-align: center;
+
+  & .state-icon {
+    margin-bottom: 12px;
+  }
+}
+
+.sent-title {
+  color: var(--ink);
+  font: 700 17px/1.3 var(--display);
+}
+
+.sent-text {
+  max-width: 340px;
+  margin: 6px auto 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+@media (max-width: 560px) {
+  .request-row {
+    flex-wrap: wrap;
+  }
+
+  .req-actions {
+    width: 100%;
+
+    & .btn-ghost,
+    & .btn-solid {
+      flex: 1;
+    }
+  }
+}

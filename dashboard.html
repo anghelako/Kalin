@@ -63,13 +63,29 @@
   </header>
 
   <main class="content">
+    <section class="widget requests" id="requests" aria-labelledby="requests-title" hidden>
+      <header class="widget-head">
+        <div>
+          <h2 id="requests-title">Join requests</h2>
+          <p class="widget-sub">People waiting for you to let them into a circle</p>
+        </div>
+        <span class="widget-count" id="request-count">0</span>
+      </header>
+
+      <div class="request-list" id="request-list"></div>
+    </section>
+
     <section class="widget" id="circles" aria-labelledby="circles-title">
       <header class="widget-head">
         <div>
           <h2 id="circles-title">Circles</h2>
           <p class="widget-sub">Your active care circles</p>
         </div>
-        <span class="widget-count" id="widget-count" hidden>0</span>
+
+        <div class="widget-actions">
+          <button type="button" class="btn-ghost small" id="join-circle">Join with a code</button>
+          <span class="widget-count" id="widget-count" hidden>0</span>
+        </div>
       </header>
 
       <div class="circle-grid" id="circle-grid" aria-live="polite"></div>
@@ -81,7 +97,7 @@
   <form id="circle-form" novalidate>
     <div class="dlg-head">
       <div>
-        <span class="dlg-eyebrow">New</span>
+        <span class="dlg-eyebrow">Circles</span>
         <h3 id="circle-dialog-title">Create a circle</h3>
       </div>
       <button type="button" class="dlg-close" id="circle-close" aria-label="Close">
@@ -90,16 +106,56 @@
     </div>
 
     <div class="dlg-body">
-      <p>A circle is a shared space for the family and caregivers looking after one person.</p>
-
-      <label class="l" for="circle-name">Circle name</label>
-      <div class="field plain">
-        <input id="circle-name" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Care for Lola" required>
+      <div class="seg" role="tablist" aria-label="Create or join a circle">
+        <button type="button" class="seg-tab" role="tab" id="tab-create" aria-selected="true" aria-controls="panel-create">Create new</button>
+        <button type="button" class="seg-tab" role="tab" id="tab-join" aria-selected="false" aria-controls="panel-join" tabindex="-1">Join with code</button>
       </div>
 
-      <label class="l" for="circle-desc">Description <span class="opt">(optional)</span></label>
-      <div class="field plain">
-        <input id="circle-desc" type="text" maxlength="120" autocomplete="off" placeholder="A short note about this circle">
+      <!-- Create -->
+      <div id="panel-create" role="tabpanel" aria-labelledby="tab-create">
+        <p class="dlg-intro">A circle is a shared space for the family and caregivers looking after one person.</p>
+
+        <label class="l" for="circle-name">Circle name</label>
+        <div class="name-row">
+          <span class="badge-preview" id="badge-preview" aria-hidden="true">?</span>
+          <div class="field plain">
+            <input id="circle-name" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Care for Lola">
+          </div>
+        </div>
+
+        <label class="l" for="circle-desc">Description <span class="opt">(optional)</span></label>
+        <div class="field plain">
+          <input id="circle-desc" type="text" maxlength="120" autocomplete="off" placeholder="A short note about this circle">
+        </div>
+
+        <div class="color-block">
+          <div class="color-head">
+            <span class="color-label">Circle color</span>
+            <strong id="color-name">Mint</strong>
+          </div>
+          <div class="swatches" id="swatches"></div>
+          <p class="color-note">Picked for you automatically, so it never matches another one of your circles.</p>
+        </div>
+      </div>
+
+      <!-- Join -->
+      <div id="panel-join" role="tabpanel" aria-labelledby="tab-join" hidden>
+        <div id="join-entry">
+          <p class="dlg-intro">Enter the invite code from the circle’s owner. They’ll get your request and need to approve it before you can join.</p>
+
+          <label class="l" for="join-code">Invite code</label>
+          <div class="field plain">
+            <input id="join-code" class="code-input" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX">
+          </div>
+        </div>
+
+        <div class="join-sent" id="join-sent" hidden>
+          <div class="state-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          </div>
+          <p class="sent-title">Request sent</p>
+          <p class="sent-text" id="join-sent-text"></p>
+        </div>
       </div>
 
       <p class="hint nomatch" id="circle-error" role="alert"></p>
