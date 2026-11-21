@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="css/login.css">
 <link rel="stylesheet" href="css/dashboard.css">
 <link rel="stylesheet" href="css/circle.css">
+<link rel="stylesheet" href="css/pharmacy.css">
 </head>
 <body class="app">
 
@@ -154,9 +155,91 @@
   </form>
 </dialog>
 
+<!-- Add medication (owners). Medicines come from the Virtual Pharmacy, never typed in. -->
+<dialog id="med-dialog" aria-labelledby="med-dialog-title">
+  <form id="med-form" novalidate>
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow">New</span>
+        <h3 id="med-dialog-title">Add medication</h3>
+      </div>
+      <button type="button" class="dlg-close" id="med-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <p class="rx-hint" id="med-empty" hidden>
+        There are no active medicines in the pharmacy yet. <a href="#" id="med-pharmacy-link">Add one in the Pharmacy</a> first.
+      </p>
+
+      <label class="l" for="med-item">Medicine</label>
+      <select id="med-item" class="rx-control"></select>
+
+      <label class="l" for="med-amount">Dose each time</label>
+      <div class="rx-amount">
+        <input id="med-amount" class="rx-control" type="number" min="0.25" step="0.25" inputmode="decimal">
+        <span id="med-unit"></span>
+      </div>
+
+      <label class="l" for="med-frequency">How often</label>
+      <select id="med-frequency" class="rx-control">
+        <option value="daily">Every day</option>
+        <option value="weekly">On specific days</option>
+        <option value="interval">Every few days</option>
+        <option value="as_needed">Only when needed</option>
+      </select>
+
+      <div id="med-days-field" hidden>
+        <label class="l">Days</label>
+        <div class="rx-days" id="med-days"></div>
+      </div>
+
+      <div id="med-interval-field" hidden>
+        <label class="l" for="med-interval">Repeat every</label>
+        <div class="rx-amount">
+          <input id="med-interval" class="rx-control" type="number" min="2" max="60" step="1" value="2" inputmode="numeric">
+          <span>days</span>
+        </div>
+      </div>
+
+      <div id="med-times-field">
+        <label class="l">Times</label>
+        <div class="rx-times" id="med-times"></div>
+        <button type="button" class="btn-ghost small" id="med-add-time">Add another time</button>
+      </div>
+
+      <div class="rx-row2">
+        <div>
+          <label class="l" for="med-start">Starts</label>
+          <input id="med-start" class="rx-control" type="date">
+        </div>
+        <div>
+          <label class="l" for="med-end">Ends <span class="opt">(optional)</span></label>
+          <input id="med-end" class="rx-control" type="date">
+        </div>
+      </div>
+
+      <label class="l" for="med-instructions">Instructions <span class="opt">(optional)</span></label>
+      <div class="field plain">
+        <input id="med-instructions" type="text" maxlength="200" autocomplete="off" placeholder="e.g. After meals">
+      </div>
+
+      <p class="hint nomatch" id="med-error" role="alert"></p>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" id="med-cancel">Cancel</button>
+      <button type="submit" class="btn-solid" id="med-save">Add medication</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/dashboard.js"></script>
+<script src="js/pharmacy-core.js"></script>
+<script src="js/medication.js"></script>
 <script src="js/circle.js"></script>
 </body>
 </html>

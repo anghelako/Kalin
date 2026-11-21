@@ -634,12 +634,18 @@
     return section;
   }
 
+  /* The real Medication panel (js/medication.js); falls back to the placeholder if that script is missing */
+  function medicationSlot() {
+    if (window.KalinMedication) return window.KalinMedication.card(thisCircle, isOwner());
+    return placeholder('slot-meds', 'Medication', 'Doses and schedules');
+  }
+
   function placeholderGrid() {
     const grid = el('div', 'circle-slots');
     grid.append(
       placeholder('slot-todo', 'To do', 'Tasks for this circle'),
       aiLogCard(),
-      placeholder('slot-meds', 'Medication', 'Doses and schedules'),
+      medicationSlot(),
       boardCard()
     );
     return grid;

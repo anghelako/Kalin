@@ -1,0 +1,587 @@
+/* Kalin Virtual Pharmacy + Medication panel.
+   Loaded by pharmacy.html and circle.html, after login.css, dashboard.css and circle.css. */
+
+/* ---------- Status chips ---------- */
+
+.rx-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: #eef2f8;
+  color: #4a566e;
+  font: 600 11.5px var(--body);
+  white-space: nowrap;
+}
+
+.rx-chip-ok,
+.rx-chip-taken {
+  background: rgba(168, 240, 220, .4);
+  color: var(--teal);
+}
+
+.rx-chip-low {
+  background: #fff1cc;
+  color: #8a5a00;
+}
+
+.rx-chip-out,
+.rx-chip-overdue,
+.rx-chip-expired {
+  background: #fee4e2;
+  color: #b42318;
+}
+
+.rx-chip-soon,
+.rx-chip-flag {
+  background: #ffe9d6;
+  color: #9a4a00;
+}
+
+.rx-chip-due {
+  background: #dff0ff;
+  color: #0b5394;
+}
+
+.rx-chip-inactive {
+  background: #eef2f8;
+  color: #5b6881;
+}
+
+.rx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.rx-name {
+  font: 600 14px/1.35 var(--body);
+  color: var(--ink);
+}
+
+.rx-sub {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.rx-hint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+
+  & a {
+    color: var(--teal);
+    font-weight: 600;
+  }
+}
+
+/* ---------- Medication panel (circle page) ---------- */
+
+.rx-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.rx-status {
+  color: var(--teal);
+  font-size: 13px;
+  line-height: 1.45;
+
+  &:empty {
+    display: none;
+  }
+
+  &.is-error {
+    color: var(--danger);
+  }
+}
+
+.rx-note {
+  color: var(--muted);
+  font-size: 13.5px;
+
+  &.is-error {
+    color: var(--danger);
+  }
+}
+
+.rx-doses {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rx-progress {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.rx-dose {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+
+  &.is-taken {
+    background: var(--field);
+  }
+
+  &.rx-prn {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+.rx-time {
+  font: 700 13px var(--display);
+  color: var(--ink);
+}
+
+.rx-info {
+  min-width: 0;
+}
+
+.rx-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.rx-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.rx-group-title {
+  color: #3b465c;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.rx-given {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.rx-schedules {
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+
+  & summary {
+    color: #3b465c;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
+.rx-schedule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* Give Medication the width of two columns so each dose fits on a line,
+   and move the shift board under it. The To do and AI log slots stay where they were. */
+@media (min-width: 901px) {
+  .circle-slots {
+    grid-template-rows: minmax(170px, auto) auto auto;
+  }
+
+  .slot-meds {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+
+  .slot-board {
+    grid-column: 1 / 3;
+    grid-row: 3;
+  }
+
+  .slot-ai {
+    grid-column: 3;
+    grid-row: 1 / 4;
+  }
+}
+
+.slot-meds .rx-doses {
+  max-height: 640px;
+  padding-right: 2px;
+  overflow-y: auto;
+}
+
+/* ---------- Dialog controls ---------- */
+
+#med-dialog,
+#item-dialog,
+#stock-dialog,
+#history-dialog {
+  max-height: min(720px, calc(100dvh - 32px));
+}
+
+.rx-control {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--ink);
+  font: 400 14px var(--body);
+  transition: border-color .15s, box-shadow .15s, background .15s;
+
+  &:focus {
+    outline: none;
+    border-color: var(--teal);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(15, 118, 110, .12);
+  }
+}
+
+select.rx-control {
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364708a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 14px center;
+  background-repeat: no-repeat;
+}
+
+.rx-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.rx-amount {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  & .rx-control {
+    flex: 1;
+  }
+
+  & span {
+    min-width: 52px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+}
+
+.rx-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rx-day {
+  min-width: 46px;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: #4a566e;
+  font: 600 13px var(--body);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+
+  &[aria-pressed="true"] {
+    border-color: var(--navy-900);
+    background: var(--navy-900);
+    color: #fff;
+  }
+}
+
+.rx-times {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.rx-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  & .rx-control {
+    flex: 1;
+  }
+}
+
+.seg.seg-3 {
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 16px;
+}
+
+.rx-stock-name {
+  color: var(--ink);
+  font: 700 17px/1.3 var(--display);
+}
+
+/* ---------- Pharmacy page ---------- */
+
+.rx-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rx-header {
+  gap: 12px;
+}
+
+.rx-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+
+  & .hero-desc {
+    margin-top: 4px;
+  }
+}
+
+.rx-disclaimer {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.rx-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.rx-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+
+  & strong {
+    font: 800 26px/1.1 var(--display);
+    letter-spacing: -.02em;
+  }
+
+  & span {
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+
+  &.rx-stat-low {
+    border-color: #f2d98a;
+    background: #fffaf0;
+  }
+
+  &.rx-stat-out {
+    border-color: #f6b8b3;
+    background: #fff6f5;
+  }
+
+  &.rx-stat-soon {
+    border-color: #f6cfae;
+    background: #fff8f2;
+  }
+}
+
+.rx-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.rx-section-title {
+  font: 700 18px/1.2 var(--display);
+  letter-spacing: -.01em;
+}
+
+.rx-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #4a566e;
+  font-size: 13px;
+  cursor: pointer;
+
+  & input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--teal);
+  }
+}
+
+.rx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+}
+
+.rx-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+
+  &.is-inactive {
+    background: var(--field);
+
+    & .rx-stock,
+    & h3 {
+      opacity: .6;
+    }
+  }
+
+  & h3 {
+    font: 700 17px/1.3 var(--display);
+    overflow-wrap: anywhere;
+  }
+}
+
+.rx-stock {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+
+  & strong {
+    color: var(--ink);
+    font: 800 32px/1.1 var(--display);
+    letter-spacing: -.02em;
+  }
+}
+
+.rx-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 10px 0 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  list-style: none;
+}
+
+.rx-notes {
+  margin-top: 8px;
+  color: #3b465c;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.rx-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.rx-history {
+  display: flex;
+  flex-direction: column;
+}
+
+.rx-move {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.rx-move-nums {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 12px;
+
+  & strong {
+    color: var(--ink);
+    font: 700 15px var(--display);
+
+    &.is-up {
+      color: var(--teal);
+    }
+
+    &.is-down {
+      color: #b42318;
+    }
+  }
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 860px) {
+  .rx-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .rx-dose {
+    grid-template-columns: 1fr auto;
+  }
+
+  .rx-time {
+    grid-column: 1 / -1;
+  }
+
+  .rx-header-top {
+    flex-direction: column;
+  }
+
+  .rx-row2 {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .rx-grid {
+    grid-template-columns: 1fr;
+  }
+}

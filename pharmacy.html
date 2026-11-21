@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pharmacy · Kalin</title>
+<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/login.css">
+<link rel="stylesheet" href="css/dashboard.css">
+<link rel="stylesheet" href="css/circle.css">
+<link rel="stylesheet" href="css/pharmacy.css">
+</head>
+<body class="app">
+
+<aside class="side">
+  <a class="brand-mark" href="dashboard.html">
+    <img class="logo" src="images/kalin-logo.png" alt="" width="36" height="36">
+    <span class="wordmark">KALIN</span>
+  </a>
+
+  <nav class="nav" aria-label="Main">
+    <a class="nav-item" href="dashboard.html" title="Home">
+      <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2z"/></svg>
+      <span>Home</span>
+    </a>
+    <a class="nav-item" href="calendar.html" title="Calendar">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span>Calendar</span>
+    </a>
+  </nav>
+
+  <div class="side-foot">
+    <button type="button" class="nav-item" id="signout" title="Sign out">
+      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      <span>Sign out</span>
+    </button>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="welcome-group">
+      <a class="back-link" id="back-link" href="dashboard.html">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>Back to Home</span>
+      </a>
+    </div>
+
+    <div class="top-actions">
+
+      <button type="button" class="icon-btn" id="notif" aria-label="Notifications">
+        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span class="dot" hidden></span>
+      </button>
+
+      <button type="button" class="avatar" id="profile" aria-label="Profile">
+        <span id="avatar-initial">K</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+    <p class="app-error" id="app-error" role="alert"></p>
+    <div id="pharm-root" aria-live="polite"></div>
+  </main>
+</div>
+
+<!-- Add / edit a medicine (owners) -->
+<dialog id="item-dialog" aria-labelledby="item-title">
+  <form id="item-form" novalidate>
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow" id="item-eyebrow">New</span>
+        <h3 id="item-title">Add a medicine</h3>
+      </div>
+      <button type="button" class="dlg-close" id="item-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <label class="l" for="item-name">Medicine name</label>
+      <div class="field plain">
+        <input id="item-name" type="text" maxlength="80" autocomplete="off" placeholder="e.g. Biogesic">
+      </div>
+
+      <div class="rx-row2">
+        <div>
+          <label class="l" for="item-strength">Strength <span class="opt">(optional)</span></label>
+          <div class="field plain">
+            <input id="item-strength" type="text" maxlength="40" autocomplete="off" placeholder="e.g. 500 mg">
+          </div>
+        </div>
+        <div>
+          <label class="l" for="item-form-type">Form</label>
+          <select id="item-form-type" class="rx-control"></select>
+        </div>
+      </div>
+
+      <div class="rx-row2">
+        <div>
+          <label class="l" for="item-unit">Counted in</label>
+          <select id="item-unit" class="rx-control"></select>
+        </div>
+        <div id="item-stock-field">
+          <label class="l" for="item-stock">Current stock</label>
+          <input id="item-stock" class="rx-control" type="number" min="0" step="0.25" inputmode="decimal" placeholder="e.g. 30">
+        </div>
+      </div>
+      <p class="rx-hint" id="item-stock-note" hidden>To change the stock, use “Adjust stock”. That keeps a record of every change.</p>
+
+      <div class="rx-row2">
+        <div>
+          <label class="l" for="item-threshold">Warn me at <span class="opt">(low stock)</span></label>
+          <input id="item-threshold" class="rx-control" type="number" min="0" step="0.25" inputmode="decimal" placeholder="e.g. 10">
+        </div>
+        <div>
+          <label class="l" for="item-expires">Expires <span class="opt">(optional)</span></label>
+          <input id="item-expires" class="rx-control" type="date">
+        </div>
+      </div>
+
+      <label class="l" for="item-notes">Notes <span class="opt">(optional)</span></label>
+      <div class="field plain">
+        <input id="item-notes" type="text" maxlength="300" autocomplete="off" placeholder="e.g. Keep refrigerated">
+      </div>
+
+      <p class="hint nomatch" id="item-error" role="alert"></p>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" id="item-cancel">Cancel</button>
+      <button type="submit" class="btn-solid" id="item-save">Add medicine</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Adjust stock (owners) -->
+<dialog id="stock-dialog" aria-labelledby="stock-title">
+  <form id="stock-form" novalidate>
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow">Stock</span>
+        <h3 id="stock-title">Adjust stock</h3>
+      </div>
+      <button type="button" class="dlg-close" id="stock-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <p class="rx-stock-name" id="stock-name"></p>
+      <p class="rx-sub" id="stock-current"></p>
+
+      <div class="seg seg-3" role="tablist" aria-label="Kind of change">
+        <button type="button" class="seg-tab" role="tab" id="stock-tab-add" aria-selected="true">Add</button>
+        <button type="button" class="seg-tab" role="tab" id="stock-tab-remove" aria-selected="false" tabindex="-1">Remove</button>
+        <button type="button" class="seg-tab" role="tab" id="stock-tab-set" aria-selected="false" tabindex="-1">Set count</button>
+      </div>
+
+      <label class="l" for="stock-amount" id="stock-amount-label">How much to add</label>
+      <div class="rx-amount">
+        <input id="stock-amount" class="rx-control" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0">
+        <span id="stock-unit"></span>
+      </div>
+      <p class="rx-hint" id="stock-preview" aria-live="polite"></p>
+
+      <div id="stock-reason-field" hidden>
+        <label class="l" for="stock-reason">Reason</label>
+        <select id="stock-reason" class="rx-control">
+          <option value="expired">Expired</option>
+          <option value="discarded">Damaged or discarded</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <label class="l" id="stock-note-label" for="stock-note">Note <span class="opt" id="stock-note-opt">(optional)</span></label>
+      <div class="field plain">
+        <input id="stock-note" type="text" maxlength="300" autocomplete="off" placeholder="e.g. Bought a new box">
+      </div>
+
+      <p class="hint nomatch" id="stock-error" role="alert"></p>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" id="stock-cancel">Cancel</button>
+      <button type="submit" class="btn-solid" id="stock-save">Add stock</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Stock history -->
+<dialog id="history-dialog" aria-labelledby="history-title">
+  <form id="history-form" method="dialog">
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow">History</span>
+        <h3 id="history-title">Stock history</h3>
+      </div>
+      <button type="button" class="dlg-close" id="history-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <p class="rx-stock-name" id="history-name"></p>
+      <div class="rx-history" id="history-list"></div>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-solid" id="history-done">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/pharmacy-core.js"></script>
+<script>
+  // Fill the Form and Counted-in lists from the shared definitions
+  (function () {
+    const form = document.getElementById('item-form-type');
+    KalinRx.FORMS.forEach(f => {
+      const option = document.createElement('option');
+      option.value = f.value;
+      option.textContent = f.label;
+      form.appendChild(option);
+    });
+    const unit = document.getElementById('item-unit');
+    KalinRx.UNITS.forEach(u => {
+      const option = document.createElement('option');
+      option.value = u;
+      option.textContent = u;
+      unit.appendChild(option);
+    });
+  })();
+</script>
+<script src="js/pharmacy.js"></script>
+</body>
+</html>

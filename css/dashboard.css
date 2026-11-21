@@ -541,7 +541,11 @@ body.app {
 #edit-dialog,
 #brief-dialog,
 #note-dialog,
-#shift-dialog {
+#shift-dialog,
+#med-dialog,
+#item-dialog,
+#stock-dialog,
+#history-dialog {
   width: min(460px, calc(100% - 32px));
   max-height: min(640px, calc(100dvh - 48px));
   margin: auto;
@@ -569,7 +573,11 @@ body.app {
 #edit-form,
 #brief-form,
 #note-form,
-#shift-form {
+#shift-form,
+#med-form,
+#item-form,
+#stock-form,
+#history-form {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -592,7 +600,11 @@ body.app {
 #edit-dialog .dlg-foot,
 #brief-dialog .dlg-foot,
 #note-dialog .dlg-foot,
-#shift-dialog .dlg-foot {
+#shift-dialog .dlg-foot,
+#med-dialog .dlg-foot,
+#item-dialog .dlg-foot,
+#stock-dialog .dlg-foot,
+#history-dialog .dlg-foot {
   gap: 10px;
 }
 
@@ -696,7 +708,11 @@ body.app {
   #edit-dialog .dlg-foot,
   #brief-dialog .dlg-foot,
   #note-dialog .dlg-foot,
-  #shift-dialog .dlg-foot {
+  #shift-dialog .dlg-foot,
+  #med-dialog .dlg-foot,
+  #item-dialog .dlg-foot,
+  #stock-dialog .dlg-foot,
+  #history-dialog .dlg-foot {
     & .btn-ghost,
     & .btn-solid {
       flex: 1;
