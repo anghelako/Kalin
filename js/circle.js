@@ -640,10 +640,12 @@
     return placeholder('slot-meds', 'Medication', 'Doses and schedules');
   }
 
-  function placeholderGrid() {
+  function circleGrid() {
     const grid = el('div', 'circle-slots');
+    const todo = card('To do');
+    window.KalinTodo.mount(todo, thisCircle, currentUser.id);
     grid.append(
-      placeholder('slot-todo', 'To do', 'Tasks for this circle'),
+      todo.section,
       aiLogCard(),
       medicationSlot(),
       boardCard()
@@ -707,7 +709,7 @@
   function render() {
     document.title = thisCircle.name + '’s care circle · Kalin';
     const page = el('div', 'circle-layout');
-    page.append(headerCard(), placeholderGrid());
+    page.append(headerCard(), circleGrid());
     root.replaceChildren(page);
   }
 

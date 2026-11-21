@@ -235,11 +235,38 @@
   </form>
 </dialog>
 
+<dialog id="todo-dialog" aria-labelledby="todo-dialog-title">
+  <form id="todo-form">
+    <div class="dlg-head">
+      <h3 id="todo-dialog-title">Add task</h3>
+      <button type="button" class="dlg-close" aria-label="Close" data-todo-close>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="dlg-body">
+      <label class="l" for="todo-title">Task</label>
+      <div class="field plain">
+        <input id="todo-title" type="text" maxlength="120" required autocomplete="off" autofocus>
+      </div>
+      <label class="l" for="todo-due">Due date <span class="opt">(optional)</span></label>
+      <div class="field plain">
+        <input id="todo-due" type="date" min="0001-01-01" max="9999-12-31">
+      </div>
+      <p class="hint nomatch" id="todo-error" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" data-todo-close>Cancel</button>
+      <button type="submit" class="btn-solid" id="todo-save">Add task</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/pharmacy-core.js"></script>
 <script src="js/medication.js"></script>
+<script src="js/todo.js"></script>
 <script src="js/circle.js"></script>
 </body>
 </html>

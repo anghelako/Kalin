@@ -24,6 +24,11 @@ A static HTML/CSS/JavaScript care-coordination prototype for families and caregi
 | `js/dashboard.js` | **Shared app bootstrap for every app page** (session guard, sidebar Circles drawer, circle loading, create-circle dialog). Also loaded by `calendar.html` and `circle.html`. |
 | `calendar.html`, `js/calendar.js`, `css/calendar.css` | Weekly shift calendar connected to Supabase: volunteer, release, owner-only create/delete shift dialog. |
 | `circle.html`, `js/circle.js`, `css/circle.css` | A single circle's page (`circle.html?id=<uuid>`): header card, AI log, Handoff brief dialog, Add note dialog, placeholders. |
+| `pharmacy.html`, `js/pharmacy.js`, `css/pharmacy.css` | **Virtual Pharmacy** for a circle (`pharmacy.html?id=<uuid>`): medicines, stock, low-stock/expiry chips, add/edit, adjust stock, stock history. `pharmacy.html` also loads `circle.css` for shared pieces (`.panel`, `.back-link`, `.page-state`). |
+| `js/pharmacy-core.js` | `KalinRx`: shared helpers (forms/units, "1 tablet" text, date/time, due-today rule, stock/expiry status, chips, error text). Loaded by `pharmacy.html` and `circle.html`. |
+| `js/medication.js` | The **Medication panel** on the circle page (today's doses, Mark taken / Undo, as-needed, owner's Add medication + schedules). Exposes `window.KalinMedication.card()`, called by `circle.js`. |
+| `js/todo.js`, `supabase/todo_setup.sql` | Shared **To do** checklist on each circle page and its database setup. |
+| `supabase/pharmacy_setup.sql` | Pharmacy inventory, schedules, doses, stock ledger + the four functions. Run once after the circles setup. |
 | `supabase/shifts_setup.sql` | SQL for `profiles` + `shifts` + volunteer/release functions. Paste into the Supabase SQL Editor. |
 | `supabase/functions/handoff-brief/index.ts` | Edge Function that calls Gemini. Deployed by pasting into the Supabase dashboard (not auto-deployed from this folder). |
 
@@ -63,7 +68,7 @@ Limit users to 5 active created circles with a `before insert` trigger on `circl
   - **Handoff brief** button (top bar) opens a dialog, calls the `handoff-brief` Edge Function with `kind: 'handoff_brief'`, shows the result with a Copy button and "AI-generated draft. Not medical advice."
   - **AI log** card lists saved `ai_log` rows (newest first, empty state "No summaries yet"), has **Generate summary** (`kind: 'summary'`) and **Add note** (inserts into `care_notes`, max 2000 chars).
   - Errors from the function (rate limit, no notes, not configured) are shown inline; buttons are disabled while a request runs.
-- Placeholders that still do nothing: **To do**, **Medication**.
+- **To do**: Circle members can add tasks with optional due dates, edit them, and mark them complete or reopen them. The task creator and circle owner can delete tasks. Tasks are saved in Supabase and shared with the circle.
 
 ### Not built yet
 - Editing a shift, assigning a shift to someone else, swapping shifts, shift notifications, time zones other than the device's own.
@@ -111,4 +116,31 @@ Limit users to 5 active created circles with a `before insert` trigger on `circl
 1. Owner runs `supabase/shifts_setup.sql`, confirms with the check above, then runs the manual checks.
 2. Confirm `care_notes` / `ai_log` exist, set the Gemini secrets, deploy `handoff-brief`, and test the AI flow.
 3. Build invites (server-side function that adds `circle_members`), since volunteering needs more than one member.
-4. Then: care notes list/delete, To do, Medication, the 5-circles-per-user limit.
+4. Then: care notes list/delete, the 5-circles-per-user limit, Medication history in the handoff brief / AI log.
+
+## To do setup
+
+1. After the circles setup, run `supabase/todo_setup.sql` in the Supabase SQL Editor. It creates `public.circle_tasks` and configures access through circle membership.
+2. Open a care circle and use **Add task**. Reopen the page to verify the task persisted. Sign in as another member to verify that the task is shared and can be edited or completed, and as a non-member to verify that the tasks are inaccessible.
+
+## Circle colors, invite codes and join requests
+- SQL: `supabase/circles_join_setup.sql` (run once, after the circles setup).
+- `circles.invite_code` (8 hex characters, unique, shown as `XXXX-XXXX`). A member can read it through the API; the UI shows it only to the owner, and owner approval is what gates joining.
+- `circle_members.color`: each person's own color for a circle. A `before insert` trigger fills it with `next_circle_color(user)`: the first of 12 palette colors not used in one of that person's active circles (the least-used one once all 12 are taken).
+- `circle_join_requests` is select-only for clients. Writes go through `request_to_join(code)` and `respond_to_join_request(request, approve)` (security definer; only the circle owner can answer). A declined person cannot re-request.
+- Flow: enter code on Home, owner approves on Home (or via the bell), membership row is added, color trigger runs.
+- `CIRCLE_PALETTE` in `dashboard.js` must stay in the same order as the SQL palette. It is not called `PALETTE` because `calendar.js` owns that name.
+- `colorFor(circle)` returns `circle.color` (personal) and only falls back to the old hash when a circle has none.
+- `fetchMyCircles()` has a fallback for the state before the SQL is run. Delete it once the SQL has been run.
+
+## Virtual Pharmacy (inventory -> schedules -> doses -> stock ledger)
+- SQL: `supabase/pharmacy_setup.sql` (run once, after the circles setup). **Not run against the real project yet.** Tested on a local Postgres 16 with Supabase stand-ins (roles, `auth.uid()`, `auth.jwt()`); the PostgREST calls were only tested against a mocked client.
+- Tables: `pharmacy_items`, `medication_schedules`, `medication_doses`, `stock_movements` (the ledger). All have RLS; members read, owners write.
+- **Stock only changes through functions**: `create_pharmacy_item`, `adjust_pharmacy_stock` (add / remove / set), `mark_dose_taken`, `undo_dose`. `pharmacy_items.stock` is not in the column grants, and doses/ledger have no client write grants.
+- Rules: creating a schedule never touches stock; Mark taken lowers it by the dose amount; Undo gives back exactly what that dose removed; stock never goes below 0. Marking a dose at 0 (or too little) stock is **allowed and flagged** (`medication_doses.flagged`, shown as "No stock on record"), not blocked, so a real dose is never unrecordable. Members undo their own dose within 15 minutes (`UNDO_MINUTES` in `pharmacy-core.js` and `interval '15 minutes'` in `undo_dose()` must match); owners can undo any dose. Two people tapping the same slot at once: one wins (partial unique index + row lock), the other gets "already recorded".
+- Owners = `circle_members.role = 'owner'` (via `pharmacy_is_owner()`); there is no separate admin role yet.
+- Slots are wall-clock (`slot_date` + `slot_time`), so they don't depend on the viewer's time zone, but "today", "Due now" and "Overdue" use the device's clock.
+- Medicines are never typed into a schedule: the Add medication dialog only lists active pharmacy items. Deactivating a medicine pauses its schedules and keeps all history (there is no delete).
+- Doses/stock are decimal (`numeric(10,2)`), so half tablets work.
+- Not built: low-stock / overdue notifications through the bell, medication history inside the handoff brief and AI log, editing a schedule (stop it and add a new one), a separate admin role.
+- Gotchas: `KalinRx` and `window.KalinMedication` are the only new globals. `#med-dialog`, `#item-dialog`, `#stock-dialog`, `#history-dialog` are registered in the `dashboard.css` dialog selectors. The Medication slot spans two grid columns (override in `pharmacy.css`, wrapped in `min-width: 901px` so the mobile layout in `circle.css` still wins).

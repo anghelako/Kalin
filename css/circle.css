@@ -403,7 +403,7 @@
   }
 }
 
-.slot-todo { grid-column: 1 / 3; grid-row: 1; }
+.slot-todo { grid-column: 1 / 3; grid-row: 1; min-width: 0; }
 .slot-meds { grid-column: 1; grid-row: 2; }
 .slot-board { grid-column: 2; grid-row: 2; }
 .slot-ai { grid-column: 3; grid-row: 1 / 3; }
@@ -437,6 +437,70 @@
   &:hover {
     background: var(--field);
   }
+}
+
+/* To do */
+
+.todo-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--field);
+}
+
+.todo-label {
+  display: flex;
+  flex: 1 1 160px;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.todo-label input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--teal);
+}
+
+.todo-label strong {
+  display: block;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.todo-label time {
+  display: block;
+  margin-top: 3px;
+}
+
+.todo-row.is-done strong {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.todo-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.todo-actions .todo-delete {
+  color: var(--danger);
 }
 
 /* AI log, handoff brief, notes */
