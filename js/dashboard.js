@@ -539,6 +539,7 @@ async function loadCircles(silent = false) {
       : 'Something went wrong while loading. Check your connection and try again.';
     circlesState = 'error';
     renderCircles();
+    if (document.body.classList.contains('app-v2')) window.dispatchEvent(new Event('kalin:circles'));
     return;
   }
 
@@ -556,6 +557,7 @@ async function loadCircles(silent = false) {
 
   circlesState = 'ready';
   renderCircles();
+  if (document.body.classList.contains('app-v2')) window.dispatchEvent(new Event('kalin:circles'));
 }
 
 // Pick up approvals and new requests when coming back to the tab

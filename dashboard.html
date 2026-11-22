@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="css/dashboard.css">
 <link rel="stylesheet" href="css/app-ui.css">
 </head>
-<body class="app">
+<body class="app app-v2">
 
 <header class="app-header">
   <a class="brand-mark" href="dashboard.html">
@@ -67,41 +67,103 @@
     </div>
 
     <div class="top-actions">
+      <button type="button" class="btn-ghost small" id="join-circle">Join with code</button>
       <button type="button" class="btn-create" id="create-circle">
         <span>Create circle</span>
         <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
       </button>
-      <button type="button" class="btn-ghost small" id="join-circle">Join with a code</button>
     </div>
   </header>
 
-  <main class="content">
-    <section class="widget requests" id="requests" aria-labelledby="requests-title" hidden>
-      <header class="widget-head">
-        <div>
-          <h2 id="requests-title">Join requests</h2>
-          <p class="widget-sub">People waiting for you to let them into a circle</p>
+  <main class="content home-content">
+    <section class="home-brief" aria-labelledby="home-brief-title">
+      <div class="home-brief-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7z"/></svg>
+      </div>
+      <div class="home-brief-text">
+        <div class="home-brief-heading">
+          <h2 id="home-brief-title">Today’s brief</h2>
+          <time id="home-brief-updated" hidden></time>
         </div>
-        <span class="widget-count" id="request-count">0</span>
-      </header>
-
-      <div class="request-list" id="request-list"></div>
+        <p id="home-brief-body" role="status">Loading brief…</p>
+        <p class="home-brief-note">AI-generated draft. Not medical advice.</p>
+      </div>
+      <button type="button" class="btn-ghost small home-brief-action" id="home-brief-action" disabled>
+        Generate
+      </button>
     </section>
 
-    <section class="widget" id="circles" aria-labelledby="circles-title">
-      <header class="widget-head">
-        <div>
-          <h2 id="circles-title">Circles</h2>
-          <p class="widget-sub">Your active care circles</p>
-        </div>
+    <div class="home-primary">
+      <section class="home-card home-attention" aria-labelledby="home-attention-title">
+        <header class="home-card-head">
+          <h2 id="home-attention-title">Needs attention</h2>
+          <span id="home-attention-count" class="widget-count" hidden></span>
+        </header>
+        <section class="widget requests" id="requests" aria-labelledby="requests-title" hidden>
+          <header class="widget-head home-visually-hidden">
+            <div>
+              <h2 id="requests-title">Join requests</h2>
+              <p class="widget-sub">People waiting for you to let them into a circle</p>
+            </div>
+            <span class="widget-count" id="request-count">0</span>
+          </header>
+    
+          <div class="request-list" id="request-list"></div>
+        </section>
+        <div id="home-attention-body" aria-live="polite"><p class="home-empty">Loading…</p></div>
+      </section>
 
-        <div class="widget-actions">
-          <span class="widget-count" id="widget-count" hidden>0</span>
-        </div>
-      </header>
+      <section class="home-card" aria-labelledby="home-progress-title">
+        <header class="home-card-head">
+          <h2 id="home-progress-title">Today’s progress</h2>
+          <div class="home-circle-filter" id="home-progress-filter" hidden>
+            <button type="button" class="btn-ghost small" id="home-progress-button"
+                    aria-expanded="false" aria-controls="home-progress-options">
+              <span id="home-progress-label">All circles</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div id="home-progress-options" class="home-filter-options" role="group" aria-label="Filter progress" hidden></div>
+          </div>
+        </header>
+        <div id="home-progress-body" aria-live="polite"><p class="home-empty">Loading…</p></div>
+      </section>
+    </div>
 
-      <div class="circle-grid" id="circle-grid" aria-live="polite"></div>
-    </section>
+    <div class="home-secondary">
+      <section class="home-card" aria-labelledby="home-shifts-title">
+        <header class="home-card-head">
+          <h2 id="home-shifts-title">My next shifts</h2>
+          <a class="btn-ghost small link-btn" href="calendar.html">Calendar</a>
+        </header>
+        <div id="home-shifts-body" aria-live="polite"><p class="home-empty">Loading…</p></div>
+      </section>
+
+      <section class="widget home-card" id="circles" aria-labelledby="circles-title">
+        <header class="widget-head home-card-head">
+          <div>
+            <h2 id="circles-title">Your circles</h2>
+            <p class="widget-sub home-visually-hidden">Your active care circles</p>
+          </div>
+          <div class="widget-actions">
+            <span class="widget-count" id="widget-count" hidden>0</span>
+          </div>
+        </header>
+        <div class="circle-grid" id="circle-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="home-card" aria-labelledby="home-activity-title">
+        <header class="home-card-head">
+          <h2 id="home-activity-title">Recent activity</h2>
+          <button type="button" class="btn-ghost small home-activity-collapse" id="home-activity-collapse"
+                  aria-controls="home-activity-panel" aria-expanded="false">Show</button>
+        </header>
+        <div id="home-activity-panel">
+          <div id="home-activity-body" aria-live="polite"><p class="home-empty">Loading…</p></div>
+          <button type="button" class="btn-ghost small" id="home-activity-more"
+                  aria-controls="home-activity-body" aria-expanded="false" hidden>Show more</button>
+        </div>
+      </section>
+    </div>
   </main>
 </div>
 
@@ -183,5 +245,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/dashboard.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/pharmacy-core.js"></script>
+<script src="js/home.js"></script>
 </body>
 </html>
