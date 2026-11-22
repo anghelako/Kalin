@@ -1,7 +1,5 @@
-/* Home dashboard data and presentation. The shared bootstrap owns the session and circle mutations. */
+/* Care alerts and Home dashboard. The shared bootstrap owns the session and circle mutations. */
 (function () {
-  if (!document.body.classList.contains('app-v2')) return;
-
   const Rx = KalinRx;
   const byId = id => document.getElementById(id);
   const slots = {
@@ -9,16 +7,6 @@
     evening: { name: 'Evening', from: 15, to: 22, hours: '15:00–22:00' }
   };
   const dayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  const activityDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-  const media = matchMedia('(max-width: 680px)');
-  const activityPanel = byId('home-activity-panel');
-  const activityMore = byId('home-activity-more');
-  const activityCollapse = byId('home-activity-collapse');
-  const activityBody = byId('home-activity-body');
-  let activityExpanded = false;
-  let phoneActivityOpen = false;
-  let activityRows = [];
-  let snapshot;
 
   function makeButton(label, className = 'btn-ghost small') {
     const button = el('button', className, label);
@@ -207,6 +195,138 @@
     return { overdueDoses, dueDoses, overdueTasks, stock, openShifts };
   }
 
+  async function readAttention(data) {
+    data.care = careFlags(data);
+    const [requests, care] = await Promise.allSettled([data.requests(), data.care]);
+    const flags = care.status === 'fulfilled' ? care.value : {
+      overdueDoses: [], dueDoses: [], overdueTasks: [], stock: [], openShifts: []
+    };
+    return {
+      requests: requests.status === 'fulfilled' ? requests.value : [],
+      rows: attentionRows(flags),
+      incomplete: requests.status === 'rejected' || care.status === 'rejected'
+    };
+  }
+
+  function attentionRows(flags) {
+    const entry = (circleId, label, status, kind, symbol, title, page = 'circle.html') =>
+      ({ circleId, label, status, kind, symbol, title, page });
+    return [
+      ...flags.overdueDoses.map(({ circleId, item, time }) =>
+        entry(circleId, item.name + ' · ' + Rx.formatTime(time), 'Overdue', 'overdue', '!', 'Overdue dose')),
+      ...flags.dueDoses.map(({ circleId, item, time }) =>
+        entry(circleId, item.name + ' · ' + Rx.formatTime(time), 'Due now', 'due', '◷', 'Dose due')),
+      ...flags.overdueTasks.map(task =>
+        entry(task.circle_id, task.title, 'Overdue', 'overdue', '!', 'Overdue task')),
+      ...flags.stock.map(({ item, label }) =>
+        entry(item.circle_id, item.name, label, 'due', '!', label, 'pharmacy.html')),
+      ...flags.openShifts.map(shift =>
+        entry(shift.circle_id, dayLabel.format(shiftStart(shift)) + ' · ' + slots[shift.slot].name,
+          'Open shift', 'open', '◇', 'Open shift'))
+    ];
+  }
+
+  const bell = byId('notif');
+  const notificationDot = bell.querySelector('.dot');
+  const notificationPanel = byId('notification-panel');
+  const notificationFeed = byId('notification-feed');
+  let notificationLoad = 0;
+  let notificationsPending = false;
+
+  function notificationLink(href, title, detail) {
+    const link = el('a', 'notification-link');
+    link.href = href;
+    link.append(el('strong', '', title), el('span', '', detail));
+    return link;
+  }
+
+  function renderNotifications(data, { requests, rows, incomplete } = { requests: [], rows: [], incomplete: true }) {
+    const links = [
+      ...requests.map(request => notificationLink('dashboard.html#requests', 'Join request',
+        request.requester_name + ' · ' + request.circle_name)),
+      ...rows.map(({ circleId, label, title, page }) =>
+        notificationLink(page + '?id=' + encodeURIComponent(circleId), title,
+          label + ' · ' + data.membership.get(circleId).name))
+    ];
+    const count = links.length;
+    notificationDot.hidden = !count;
+    bell.setAttribute('aria-label', count ? 'Notifications (' + count + ' active)' : 'Notifications');
+    notificationFeed.replaceChildren(...links);
+    if (incomplete) {
+      const retry = makeButton('Retry');
+      retry.addEventListener('click', async () => {
+        retry.disabled = true;
+        try {
+          if (circlesState === 'ready') await refreshNotifications();
+          else await loadCircles();
+        } finally {
+          retry.disabled = false;
+        }
+      });
+      notificationFeed.append(el('p', 'notification-status',
+        count ? 'Some notifications couldn’t load.' : 'Couldn’t load notifications.'), retry);
+    } else if (!count) {
+      notificationFeed.appendChild(el('p', 'notification-status', 'You’re all caught up.'));
+    }
+  }
+
+  async function loadNotificationAttention(data) {
+    const load = ++notificationLoad;
+    notificationsPending = true;
+    try {
+      const result = await readAttention(data);
+      if (notificationLoad === load) renderNotifications(data, result);
+      return result;
+    } catch (error) {
+      if (notificationLoad === load) renderNotifications();
+      throw error;
+    } finally {
+      if (notificationLoad === load) notificationsPending = false;
+    }
+  }
+
+  function showNotificationError() {
+    notificationLoad++;
+    notificationsPending = false;
+    renderNotifications();
+  }
+
+  async function refreshNotifications() {
+    if (circlesState === 'error') showNotificationError();
+    if (circlesState !== 'ready') return;
+    try {
+      await loadNotificationAttention(createSnapshot(currentUser));
+    } catch (error) {
+      console.error('Could not load notifications:', error);
+    }
+  }
+
+  notificationFeed.addEventListener('click', event => {
+    if (event.target.closest('a')) notificationPanel.hidePopover();
+  });
+  notificationPanel.addEventListener('toggle', event => {
+    if (event.newState === 'open' && !notificationsPending) refreshNotifications();
+  });
+
+  if (!document.body.classList.contains('app-v2')) {
+    window.addEventListener('kalin:circles', refreshNotifications);
+    window.kalinReady.then(user => {
+      if (user && !notificationLoad) refreshNotifications();
+    });
+    return;
+  }
+
+  const activityDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+  const media = matchMedia('(max-width: 680px)');
+  const activityPanel = byId('home-activity-panel');
+  const activityMore = byId('home-activity-more');
+  const activityCollapse = byId('home-activity-collapse');
+  const activityBody = byId('home-activity-body');
+  let activityExpanded = false;
+  let phoneActivityOpen = false;
+  let activityRows = [];
+  let snapshot;
+
   function attentionRow(circle, label, status, kind, symbol) {
     const row = el('div', 'home-attention-row');
     row.append(dot(circle), rowText(label, circle.name), chip(status, kind, symbol), chevron(circle));
@@ -230,26 +350,15 @@
   const requestsPanel = byId('requests');
   const requestList = byId('request-list');
 
-  function renderAttention(data, requests, flags) {
-    const rows = [
-      ...flags.overdueDoses.map(({ circleId, item, time }) =>
-        [circleId, item.name + ' · ' + Rx.formatTime(time), 'Overdue', 'overdue', '!']),
-      ...flags.dueDoses.map(({ circleId, item, time }) =>
-        [circleId, item.name + ' · ' + Rx.formatTime(time), 'Due now', 'due', '◷']),
-      ...flags.overdueTasks.map(task =>
-        [task.circle_id, task.title, 'Overdue', 'overdue', '!']),
-      ...flags.stock.map(({ item, label }) =>
-        [item.circle_id, item.name, label, 'due', '!']),
-      ...flags.openShifts.map(shift =>
-        [shift.circle_id, dayLabel.format(shiftStart(shift)) + ' · ' + slots[shift.slot].name, 'Open shift', 'open', '◇'])
-    ];
+  function renderAttention(data, requests, rows) {
     const total = requests.length + rows.length;
     attentionCount.textContent = String(total);
     attentionCount.hidden = false;
     requestsPanel.hidden = !requests.length;
     requestList.replaceChildren(...requests.slice(0, 5).map(request => joinRow(request, data.membership.get(request.circle_id))));
     attentionBody.replaceChildren(...rows.slice(0, Math.max(0, 5 - requests.length))
-      .map(([circleId, ...row]) => attentionRow(data.membership.get(circleId), ...row)));
+      .map(({ circleId, label, status, kind, symbol }) =>
+        attentionRow(data.membership.get(circleId), label, status, kind, symbol)));
     if (!total) attentionBody.appendChild(empty('All clear'));
     if (requests.length && location.hash === '#requests') requestsPanel.scrollIntoView();
   }
@@ -560,6 +669,7 @@
     if (!client || !currentUser) return;
     if (circlesState !== 'ready') {
       snapshot = undefined;
+      showNotificationError();
       const retry = () => loadCircles();
       const bodies = [attentionBody, byId('home-progress-body'), byId('home-shifts-body'), byId('circle-grid'), activityBody];
       bodies.forEach(body => {
@@ -571,17 +681,10 @@
 
     const data = createSnapshot(currentUser);
     snapshot = data;
-    function loadAttention() {
-      data.care = careFlags(data);
-      return Promise.allSettled([data.requests(), data.care]);
-    }
-    function renderAttentionResult([requestsResult, careResult]) {
-      const requests = requestsResult.status === 'fulfilled' ? requestsResult.value : [];
-      const flags = careResult.status === 'fulfilled' ? careResult.value : {
-        overdueDoses: [], dueDoses: [], overdueTasks: [], stock: [], openShifts: []
-      };
-      renderAttention(data, requests, flags);
-      if (requestsResult.status === 'rejected' || careResult.status === 'rejected') {
+    const loadAttention = () => loadNotificationAttention(data);
+    function renderAttentionResult(result) {
+      renderAttention(data, result.requests, result.rows);
+      if (result.incomplete) {
         attentionCount.hidden = true;
         if (attentionBody.textContent === 'All clear') attentionBody.replaceChildren();
         attentionBody.appendChild(failed('Couldn’t load all items', () => {

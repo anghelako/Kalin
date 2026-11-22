@@ -38,25 +38,30 @@
     </a>
   </nav>
   <div class="app-account">
-    <button type="button" class="icon-btn" id="notif" aria-label="Notifications">
+    <button type="button" class="icon-btn" id="notif" aria-label="Notifications" popovertarget="notification-panel">
       <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
       <span class="dot" hidden></span>
     </button>
 
-    <button type="button" class="avatar" id="profile" aria-label="Profile">
+    <section id="notification-panel" popover aria-labelledby="notification-title">
+      <h2 id="notification-title">Notifications</h2>
+      <div id="notification-feed" aria-live="polite"><p class="notification-status">Loading…</p></div>
+    </section>
+
+    <button type="button" class="avatar" id="profile" aria-label="Profile" popovertarget="profile-actions">
       <span id="avatar-initial" aria-hidden="true">K</span>
       <span data-profile-name>Profile</span>
     </button>
+    <div class="side-foot" id="profile-actions" popover>
+      <button type="button" class="nav-item" id="signout" title="Sign out" aria-label="Sign out">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Sign out</span>
+      </button>
+    </div>
   </div>
 </header>
 
 <aside class="side" aria-label="Care circles">
-  <div class="side-foot">
-    <button type="button" class="nav-item" id="signout" title="Sign out" aria-label="Sign out">
-      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-      <span>Sign out</span>
-    </button>
-  </div>
 </aside>
 
 <div class="main">

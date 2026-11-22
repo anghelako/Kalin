@@ -123,6 +123,75 @@ body.app #avatar-initial {
 
 body.app [data-profile-name] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+body.app :is(#profile-actions, #notification-panel) {
+  inset: auto;
+  top: calc(var(--app-space) + 60px);
+  right: calc(max(0px, (100vw - 1536px) / 2) + var(--app-space) + 6px);
+  width: max-content;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(5, 11, 24, .14);
+}
+
+body.app #notification-panel {
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - var(--app-space) * 2));
+  max-height: min(480px, 70dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  color: var(--ink);
+}
+
+body.app #notification-title {
+  margin: 3px 7px 8px;
+  font: 700 16px var(--display);
+}
+
+body.app .notification-link {
+  display: grid;
+  gap: 3px;
+  padding: 9px 8px;
+  border-radius: 9px;
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+body.app .notification-link:is(:hover, :focus-visible) { background: var(--app-soft); }
+body.app :is(.notification-link span, .notification-status) { color: var(--muted); font-size: 13px; }
+body.app .notification-status { margin: 8px; }
+
+@supports (top: anchor(bottom)) {
+  body.app #profile-actions {
+    position-anchor: auto;
+    top: calc(anchor(bottom) + 6px);
+    right: anchor(right);
+  }
+
+  @media (min-width: 681px) {
+    body.app #notification-panel {
+      position-anchor: auto;
+      top: calc(anchor(bottom) + 6px);
+      right: anchor(right);
+    }
+  }
+}
+
+body.app #profile-actions #signout {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--navy-900);
+  font-size: 14px;
+}
+
 body.app .side {
   position: sticky;
   top: var(--app-space);
@@ -179,8 +248,7 @@ body.app .side .swatch {
   font: 800 15px var(--display);
 }
 
-body.app .side :is(.circle-name, .circle-note, .nav-item span),
-body.app .side-foot .nav-item span {
+body.app .side :is(.circle-name, .circle-note, .nav-item span) {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -191,16 +259,6 @@ body.app .side-foot .nav-item span {
 }
 
 body.app .side .nav-toggle { background: var(--app-soft); }
-body.app .side-foot {
-  display: grid;
-  justify-items: center;
-  width: 100%;
-  margin-top: auto;
-  padding: 0;
-  border: 0;
-}
-
-body.app .side #signout:hover { color: var(--navy-900); }
 
 body.app .topbar {
   flex-wrap: wrap;
@@ -268,18 +326,8 @@ body.app :is(a, button, input, select, textarea, [tabindex]):focus-visible {
   body.app .app-header .brand-mark { gap: 5px; padding-inline: 8px 10px; }
   body.app .app-header .logo { width: 28px; height: 28px; }
   body.app .app-header .wordmark { font-size: 22px; }
-  body.app .app-account { padding-right: 50px; }
   body.app .side { display: contents; }
   body.app .side .nav-group { display: none; }
-
-  body.app .side-foot {
-    grid-area: 1 / 1;
-    justify-self: end;
-    align-self: center;
-    width: auto;
-    z-index: 1;
-    margin: 0 6px 0 0;
-  }
 
   body.app .app-header .nav {
     position: fixed;

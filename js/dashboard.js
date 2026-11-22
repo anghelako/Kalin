@@ -64,28 +64,6 @@ if (today) {
   });
 }
 
-const notifications = document.getElementById('notif');
-if (notifications) {
-  notifications.addEventListener('click', () => {
-    // Join requests waiting for the owner: jump to them
-    if (reviewRequests.length) {
-      const panel = document.getElementById('requests');
-      if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      else window.location.href = 'dashboard.html#requests';
-      return;
-    }
-    window.alert('You’re all caught up. Notifications will appear here once the notification feature is connected.');
-  });
-}
-
-const profile = document.getElementById('profile');
-if (profile) {
-  profile.addEventListener('click', async () => {
-    await window.kalinReady;
-    if (currentUser) window.alert('Signed in as: ' + currentUser.email);
-  });
-}
-
 /* =====================================================================
    Circles: rail + dashboard widget + "Create circle" dialog
    ===================================================================== */
@@ -444,9 +422,6 @@ function requestRow(request) {
 }
 
 function renderRequests() {
-  const dot = document.querySelector('#notif .dot');
-  if (dot) dot.hidden = reviewRequests.length === 0;
-
   const panel = document.getElementById('requests');
   if (!panel) return;
 
@@ -539,7 +514,7 @@ async function loadCircles(silent = false) {
       : 'Something went wrong while loading. Check your connection and try again.';
     circlesState = 'error';
     renderCircles();
-    if (document.body.classList.contains('app-v2')) window.dispatchEvent(new Event('kalin:circles'));
+    window.dispatchEvent(new Event('kalin:circles'));
     return;
   }
 
@@ -557,7 +532,7 @@ async function loadCircles(silent = false) {
 
   circlesState = 'ready';
   renderCircles();
-  if (document.body.classList.contains('app-v2')) window.dispatchEvent(new Event('kalin:circles'));
+  window.dispatchEvent(new Event('kalin:circles'));
 }
 
 // Pick up approvals and new requests when coming back to the tab
