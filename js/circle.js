@@ -15,13 +15,13 @@
     return !!(currentUser && thisCircle && thisCircle.created_by === currentUser.id);
   }
 
-  function showMessage(title, text, withHome) {
+  function showMessage(title, text, withCirclesLink) {
     root.replaceChildren();
     const box = el('div', 'page-state');
     box.append(el('h2', '', title), el('p', '', text));
-    if (withHome) {
-      const link = el('a', 'btn-solid link-btn', 'Back to Home');
-      link.href = 'dashboard.html';
+    if (withCirclesLink) {
+      const link = el('a', 'btn-solid link-btn', 'All circles');
+      link.href = 'circles.html';
       box.appendChild(link);
     }
     root.appendChild(box);
@@ -785,7 +785,7 @@
     } catch (_) {
       // The current page remains usable without persistent storage.
     }
-    document.querySelector('[data-circle-tab]').href = 'circle.html?id=' + encodeURIComponent(circleId);
+    document.getElementById('circle-back-link').hidden = false;
     render();
     loadAiLog();
     loadDuty();

@@ -79,12 +79,12 @@
     } catch (_) {
       // The current page remains usable without persistent storage.
     }
-    document.querySelector('[data-circle-tab]').href = 'circle.html?id=' + encodeURIComponent(circleId);
     owner = circle.created_by === currentUser.id;
     document.title = 'Pharmacy · ' + Rx.possessive(circle.name) + ' · Kalin';
     const back = document.getElementById('back-link');
-    back.href = 'circle.html?id=' + encodeURIComponent(circleId);
-    back.querySelector('span').textContent = 'Back to ' + Rx.possessive(circle.name);
+    const fromList = new URLSearchParams(window.location.search).get('from') === 'list';
+    back.href = fromList ? 'pharmacies.html' : 'circle.html?id=' + encodeURIComponent(circleId);
+    back.querySelector('span').textContent = fromList ? 'All pharmacies' : 'Back to ' + Rx.possessive(circle.name);
 
     await loadItems(false);
   }

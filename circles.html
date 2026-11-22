@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circles · Kalin</title>
+<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/login.css">
+<link rel="stylesheet" href="css/dashboard.css">
+<link rel="stylesheet" href="css/app-ui.css">
+</head>
+<body class="app app-v2 crc-page">
+
+<header class="app-header">
+  <a class="brand-mark" href="dashboard.html">
+    <img class="logo" src="images/kalin-logo.png" alt="" width="36" height="36">
+    <span class="wordmark">Kalin</span>
+  </a>
+  <nav class="nav" aria-label="Main">
+    <a class="nav-item" href="dashboard.html" title="Home">
+      <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2z"/></svg>
+      <span>Home</span>
+    </a>
+    <a class="nav-item active" aria-current="page" href="circles.html" data-circle-tab>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>
+      <span>Circle</span>
+    </a>
+    <a class="nav-item" href="calendar.html" title="Calendar">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span>Calendar</span>
+    </a>
+    <a class="nav-item" href="pharmacies.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5"/><path d="M12 8v8m-4-4h8"/></svg>
+      <span>Pharmacy</span>
+    </a>
+  </nav>
+  <div class="app-account">
+    <button type="button" class="icon-btn" id="notif" aria-label="Notifications" popovertarget="notification-panel">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <span class="dot" hidden></span>
+    </button>
+
+    <section id="notification-panel" popover aria-labelledby="notification-title">
+      <h2 id="notification-title">Notifications</h2>
+      <div id="notification-feed" aria-live="polite"><p class="notification-status">Loading…</p></div>
+    </section>
+
+    <button type="button" class="avatar" id="profile" aria-label="Profile" popovertarget="profile-actions">
+      <span id="avatar-initial" aria-hidden="true">K</span>
+      <span data-profile-name>Profile</span>
+    </button>
+    <div class="side-foot" id="profile-actions" popover>
+      <button type="button" class="nav-item" id="signout" title="Sign out" aria-label="Sign out">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Sign out</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<aside class="side" aria-label="Care circles">
+</aside>
+
+<div class="main">
+  <main class="content" aria-labelledby="circles-title">
+    <header class="topbar crc-header">
+      <div class="welcome-group">
+        <h1 class="welcome" id="circles-title">Circles</h1>
+        <p id="crc-summary" aria-live="polite">Loading circles…</p>
+      </div>
+      <div class="top-actions">
+        <button type="button" class="btn-ghost small" id="join-circle">Join with code</button>
+        <button type="button" class="btn-create" id="create-circle">
+          <span>Create circle</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+    </header>
+    <p class="app-error" id="app-error" role="alert"></p>
+    <div class="crc-grid" id="crc-grid" aria-busy="true"></div>
+  </main>
+</div>
+
+<dialog id="circle-dialog" aria-labelledby="circle-dialog-title">
+  <form id="circle-form" novalidate>
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow">Circles</span>
+        <h3 id="circle-dialog-title">Create a circle</h3>
+      </div>
+      <button type="button" class="dlg-close" id="circle-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <div class="seg" role="tablist" aria-label="Create or join a circle">
+        <button type="button" class="seg-tab" role="tab" id="tab-create" aria-selected="true" aria-controls="panel-create">Create new</button>
+        <button type="button" class="seg-tab" role="tab" id="tab-join" aria-selected="false" aria-controls="panel-join" tabindex="-1">Join with code</button>
+      </div>
+
+      <!-- Create -->
+      <div id="panel-create" role="tabpanel" aria-labelledby="tab-create">
+        <p class="dlg-intro">A circle is a shared space for the family and caregivers looking after one person.</p>
+
+        <label class="l" for="circle-name">Circle name</label>
+        <div class="name-row">
+          <span class="badge-preview" id="badge-preview" aria-hidden="true">?</span>
+          <div class="field plain">
+            <input id="circle-name" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Care for Lola">
+          </div>
+        </div>
+
+        <label class="l" for="circle-desc">Description <span class="opt">(optional)</span></label>
+        <div class="field plain">
+          <input id="circle-desc" type="text" maxlength="120" autocomplete="off" placeholder="A short note about this circle">
+        </div>
+
+        <div class="color-block">
+          <div class="color-head">
+            <span class="color-label">Circle color</span>
+            <strong id="color-name">Mint</strong>
+          </div>
+          <div class="swatches" id="swatches"></div>
+          <p class="color-note">Picked for you automatically, so it never matches another one of your circles.</p>
+        </div>
+      </div>
+
+      <!-- Join -->
+      <div id="panel-join" role="tabpanel" aria-labelledby="tab-join" hidden>
+        <div id="join-entry">
+          <p class="dlg-intro">Enter the invite code from the circle’s owner. They’ll get your request and need to approve it before you can join.</p>
+
+          <label class="l" for="join-code">Invite code</label>
+          <div class="field plain">
+            <input id="join-code" class="code-input" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX">
+          </div>
+        </div>
+
+        <div class="join-sent" id="join-sent" hidden>
+          <div class="state-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          </div>
+          <p class="sent-title">Request sent</p>
+          <p class="sent-text" id="join-sent-text"></p>
+        </div>
+      </div>
+
+      <p class="hint nomatch" id="circle-error" role="alert"></p>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" id="circle-cancel">Cancel</button>
+      <button type="submit" class="btn-solid" id="circle-save">Create circle</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/pharmacy-core.js"></script>
+<script src="js/home.js"></script>
+<script src="js/circles.js"></script>
+</body>
+</html>

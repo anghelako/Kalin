@@ -206,14 +206,6 @@ function buildCirclesDrawer() {
     </button>`;
   rail.prepend(group);
   group.querySelector('.nav-toggle').addEventListener('click', () => openCircleDialog('create'));
-
-  const circleTab = document.querySelector('[data-circle-tab]');
-  try {
-    const lastCircle = window.localStorage.getItem('kalin.lastCircle');
-    if (circleTab && lastCircle) circleTab.href = 'circle.html?id=' + encodeURIComponent(lastCircle);
-  } catch (_) {
-    // Keep the Home fallback if storage is unavailable.
-  }
 }
 
 const activeCircleId = new URLSearchParams(window.location.search).get('id');
@@ -235,22 +227,21 @@ function renderDrawer() {
 
   circles.forEach(circle => {
     const item = el('li');
-    const button = el('button', 'circle-link');
-    button.type = 'button';
-    button.title = circle.name;
-    button.setAttribute('aria-label', circle.name);
+    const link = el('a', 'circle-link');
+    link.href = 'circle.html?id=' + encodeURIComponent(circle.id);
+    link.title = circle.name;
+    link.setAttribute('aria-label', circle.name);
     if (circle.id === activeCircleId) {
-      button.classList.add('active');
-      button.setAttribute('aria-current', 'page');
+      link.classList.add('active');
+      link.setAttribute('aria-current', 'page');
     }
 
     const swatch = el('span', 'swatch', initialOf(circle.name));
     swatch.setAttribute('aria-hidden', 'true');
     swatch.style.background = colorFor(circle);
 
-    button.append(swatch, el('span', 'circle-name', circle.name));
-    button.addEventListener('click', () => openCircle(circle));
-    item.appendChild(button);
+    link.append(swatch, el('span', 'circle-name', circle.name));
+    item.appendChild(link);
     list.appendChild(item);
   });
 }
@@ -726,6 +717,16 @@ if (createCircleButton) createCircleButton.addEventListener('click', () => openC
 
 const joinCircleButton = document.getElementById('join-circle');
 if (joinCircleButton) joinCircleButton.addEventListener('click', () => openCircleDialog('join'));
+
+// Home and Calendar still carry the older disabled Pharmacy tab markup.
+{
+  const pharmacyTab = document.querySelector('.app-header .nav a[role="link"][aria-disabled="true"]');
+  if (pharmacyTab?.textContent.trim() === 'Pharmacy') {
+    pharmacyTab.href = 'pharmacies.html';
+    pharmacyTab.removeAttribute('aria-disabled');
+    pharmacyTab.removeAttribute('role');
+  }
+}
 
 buildCirclesDrawer();
 loadCircles();

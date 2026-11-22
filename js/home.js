@@ -308,7 +308,7 @@
     if (event.newState === 'open' && !notificationsPending) refreshNotifications();
   });
 
-  if (!document.body.classList.contains('app-v2')) {
+  if (!byId('home-attention-body')) {
     window.addEventListener('kalin:circles', refreshNotifications);
     window.kalinReady.then(user => {
       if (user && !notificationLoad) refreshNotifications();
