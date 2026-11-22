@@ -131,12 +131,13 @@
 
   /* ---------- Header card: name, description, members, who's on duty ---------- */
 
-  /* ---------- Settings menu (owner only; delete for now) ---------- */
+  /* ---------- Settings menu ---------- */
 
   const ICON_GEAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3h0a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5h0a1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8v0a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>';
   const ICON_TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6"/></svg>';
+  const ICON_LEAVE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3m9-8h7a2 2 0 012 2v12a2 2 0 01-2 2h-7"/></svg>';
 
-  function settingsMenu() {
+  function settingsMenu(owner) {
     const wrap = el('div', 'settings');
 
     const button = el('button', 'settings-btn');
@@ -150,16 +151,17 @@
     menu.setAttribute('role', 'menu');
     menu.hidden = true;
 
-    const del = el('button', 'settings-item danger');
-    del.type = 'button';
-    del.setAttribute('role', 'menuitem');
-    del.innerHTML = ICON_TRASH;
-    del.appendChild(el('span', '', 'Delete circle'));
-    del.addEventListener('click', () => {
+    const action = el('button', 'settings-item danger');
+    action.type = 'button';
+    action.setAttribute('role', 'menuitem');
+    action.innerHTML = owner ? ICON_TRASH : ICON_LEAVE;
+    action.appendChild(el('span', '', owner ? 'Delete circle' : 'Leave circle'));
+    action.addEventListener('click', () => {
       setOpen(false);
-      deleteCircle();
+      if (owner) deleteCircle();
+      else leaveCircle(button);
     });
-    menu.appendChild(del);
+    menu.appendChild(action);
 
     function setOpen(open) {
       menu.hidden = !open;
@@ -725,13 +727,17 @@
 
     const actions = el('div', 'hero-actions');
     if (handoffBtn) actions.appendChild(handoffBtn);
-    if (isOwner()) actions.appendChild(settingsMenu());
+    const owner = isOwner();
+    const isMember = (thisCircle.circle_members || []).some(member =>
+      member.user_id === currentUser.id && member.role === 'member'
+    );
+    if (owner || isMember) actions.appendChild(settingsMenu(owner));
 
     const row = el('div', 'hero-row');
     row.append(actions, shift);
     section.appendChild(row);
 
-    if (isOwner()) {
+    if (owner) {
       inviteSlot = el('div', 'invite-row');
       section.appendChild(inviteSlot);
       fillInvite();
@@ -842,7 +848,44 @@
     loadCircles(); // refresh the sidebar list
   });
 
-  /* ---------- Delete ---------- */
+  /* ---------- Leave or delete ---------- */
+
+  async function leaveCircle(settingsButton) {
+    settingsButton.focus();
+    const ok = window.confirm(
+      'Leave “' + thisCircle.name + '’s care circle”? You’ll lose access, and all your claimed shifts in this circle will become vacant.'
+    );
+    if (!ok) return;
+
+    settingsButton.disabled = true;
+    try {
+      const { data, error } = await client
+        .from('circle_members')
+        .delete()
+        .eq('circle_id', thisCircle.id)
+        .eq('user_id', currentUser.id)
+        .eq('role', 'member')
+        .select('circle_id');
+
+      if (error) throw error;
+      if (!data?.length) throw new Error('No membership was removed.');
+    } catch (error) {
+      console.error('Could not leave circle:', error);
+      settingsButton.disabled = false;
+      settingsButton.focus();
+      window.alert('Couldn’t confirm you left this circle. Refresh the page and try again.');
+      return;
+    }
+
+    try {
+      if (window.localStorage.getItem('kalin.lastCircle') === thisCircle.id) {
+        window.localStorage.removeItem('kalin.lastCircle');
+      }
+    } catch (_) {
+      // Leaving still works when browser storage is unavailable.
+    }
+    window.location.replace('dashboard.html');
+  }
 
   async function deleteCircle() {
     const ok = window.confirm(
