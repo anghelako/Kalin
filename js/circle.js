@@ -309,7 +309,7 @@
   }
 
   function aiLogCard() {
-    const { section, head } = card('AI log', 'Summaries of recent activity');
+    const { section, head } = card('Latest summary');
     section.classList.add('slot', 'slot-ai');
 
     const actions = el('div', 'panel-actions');
@@ -451,6 +451,8 @@
 
   let dutyDot = null;
   let dutyText = null;
+  let dutyProgress = null;
+  let dutyHours = null;
   let boardListEl = null;
   let boardStatusEl = null;
   let boardTimer = null;
@@ -476,10 +478,18 @@
     return (row.profiles && row.profiles.full_name) || 'Member';
   }
 
-  function setDuty(name) {
+  function setDuty(name, slot, now) {
     if (!dutyText || !dutyDot) return;
-    dutyText.textContent = 'On duty: ' + (name || 'No one assigned');
+    dutyText.textContent = name || 'No one assigned';
     dutyDot.classList.toggle('on', !!name);
+    const shift = name && SLOT_INFO[slot];
+    dutyProgress.hidden = !shift;
+    dutyHours.hidden = !shift;
+    if (shift) {
+      dutyProgress.max = (shift.to - shift.from) * 60;
+      dutyProgress.value = (now.getHours() - shift.from) * 60 + now.getMinutes();
+      dutyHours.textContent = shift.time;
+    }
   }
 
   async function loadDuty() {
@@ -501,7 +511,7 @@
       console.error('Could not load who is on duty:', error);
       return; // keep whatever is shown rather than claiming no one is on duty
     }
-    setDuty(data && data.length ? nameOf(data[0]) : null);
+    setDuty(data && data.length ? nameOf(data[0]) : null, slot, now);
   }
 
   function boardStatus(text, isError) {
@@ -609,7 +619,7 @@
   }
 
   function boardCard() {
-    const { section, head } = card('Shift volunteering board', 'Open shifts in the next two weeks');
+    const { section, head } = card('Open shifts', 'Next two weeks');
     section.classList.add('slot', 'slot-board');
 
     const calendarLink = el('a', 'btn-ghost small link-btn', 'Calendar');
@@ -637,7 +647,7 @@
   /* The real Medication panel (js/medication.js); falls back to the placeholder if that script is missing */
   function medicationSlot() {
     if (window.KalinMedication) return window.KalinMedication.card(thisCircle, isOwner());
-    return placeholder('slot-meds', 'Medication', 'Doses and schedules');
+    return placeholder('slot-meds', 'Today’s medication', 'Doses and schedules');
   }
 
   function circleGrid() {
@@ -687,16 +697,25 @@
     const section = el('section', 'circle-hero');
     if (isOwner()) section.appendChild(settingsMenu());
 
-    const title = el('h1', 'hero-title', thisCircle.name + '’s care circle');
-    section.appendChild(title);
-    if (thisCircle.description) section.appendChild(el('p', 'hero-desc', thisCircle.description));
+    const shift = el('div', 'hero-shift');
+    shift.appendChild(el('h2', 'hero-duty-label', 'On duty now'));
 
-    // Who's on duty right now (filled in by loadDuty)
     const duty = el('div', 'duty');
     dutyDot = el('span', 'duty-dot');
-    dutyText = el('span', '', 'On duty: No one assigned');
+    dutyDot.setAttribute('aria-hidden', 'true');
+    dutyText = el('span', '', 'No one assigned');
     duty.append(dutyDot, dutyText);
-    section.appendChild(duty);
+    dutyProgress = el('progress', 'hero-progress');
+    dutyProgress.setAttribute('aria-label', 'Current shift progress');
+    dutyProgress.hidden = true;
+    dutyHours = el('p', 'hero-hours');
+    dutyHours.hidden = true;
+    shift.append(duty, dutyProgress, dutyHours);
+
+    const row = el('div', 'hero-row');
+    row.appendChild(shift);
+    if (handoffBtn) row.appendChild(handoffBtn);
+    section.appendChild(row);
 
     if (isOwner()) {
       inviteSlot = el('div', 'invite-row');
@@ -709,7 +728,10 @@
   function render() {
     document.title = thisCircle.name + '’s care circle · Kalin';
     const page = el('div', 'circle-layout');
-    page.append(headerCard(), circleGrid());
+    const heading = el('div', 'circle-heading');
+    heading.appendChild(el('h1', 'hero-title', thisCircle.name + '’s care circle'));
+    if (thisCircle.description) heading.appendChild(el('p', 'hero-desc', thisCircle.description));
+    page.append(heading, headerCard(), circleGrid());
     root.replaceChildren(page);
   }
 
@@ -738,6 +760,12 @@
     }
 
     thisCircle = data;
+    try {
+      window.localStorage.setItem('kalin.lastCircle', circleId);
+    } catch (_) {
+      // The current page remains usable without persistent storage.
+    }
+    document.querySelector('[data-circle-tab]').href = 'circle.html?id=' + encodeURIComponent(circleId);
     render();
     loadAiLog();
     loadDuty();

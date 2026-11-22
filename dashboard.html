@@ -10,28 +10,49 @@
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/login.css">
 <link rel="stylesheet" href="css/dashboard.css">
+<link rel="stylesheet" href="css/app-ui.css">
 </head>
 <body class="app">
 
-<aside class="side">
+<header class="app-header">
   <a class="brand-mark" href="dashboard.html">
     <img class="logo" src="images/kalin-logo.png" alt="" width="36" height="36">
-    <span class="wordmark">KALIN</span>
+    <span class="wordmark">Kalin</span>
   </a>
-
   <nav class="nav" aria-label="Main">
-    <a class="nav-item active" href="dashboard.html" title="Home">
+    <a class="nav-item active" aria-current="page" href="dashboard.html" title="Home">
       <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2z"/></svg>
       <span>Home</span>
+    </a>
+    <a class="nav-item" href="dashboard.html" data-circle-tab>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>
+      <span>Circle</span>
     </a>
     <a class="nav-item" href="calendar.html" title="Calendar">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
       <span>Calendar</span>
     </a>
+    <a class="nav-item" role="link" aria-disabled="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5"/><path d="M12 8v8m-4-4h8"/></svg>
+      <span>Pharmacy</span>
+    </a>
   </nav>
+  <div class="app-account">
+    <button type="button" class="icon-btn" id="notif" aria-label="Notifications">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <span class="dot" hidden></span>
+    </button>
 
+    <button type="button" class="avatar" id="profile" aria-label="Profile">
+      <span id="avatar-initial" aria-hidden="true">K</span>
+      <span data-profile-name>Profile</span>
+    </button>
+  </div>
+</header>
+
+<aside class="side" aria-label="Care circles">
   <div class="side-foot">
-    <button type="button" class="nav-item" id="signout" title="Sign out">
+    <button type="button" class="nav-item" id="signout" title="Sign out" aria-label="Sign out">
       <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       <span>Sign out</span>
     </button>
@@ -50,15 +71,7 @@
         <span>Create circle</span>
         <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
       </button>
-
-      <button type="button" class="icon-btn" id="notif" aria-label="Notifications">
-        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
-        <span class="dot" hidden></span>
-      </button>
-
-      <button type="button" class="avatar" id="profile" aria-label="Profile">
-        <span id="avatar-initial">K</span>
-      </button>
+      <button type="button" class="btn-ghost small" id="join-circle">Join with a code</button>
     </div>
   </header>
 
@@ -83,7 +96,6 @@
         </div>
 
         <div class="widget-actions">
-          <button type="button" class="btn-ghost small" id="join-circle">Join with a code</button>
           <span class="widget-count" id="widget-count" hidden>0</span>
         </div>
       </header>

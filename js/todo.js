@@ -37,10 +37,34 @@
     const status = el('p', 'ai-status');
     const content = el('div', 'ai-list');
     let tasks = [];
+    let selectedFilter = 'Today';
+    const emptyStates = {
+      Today: 'Nothing due today',
+      Week: 'Nothing due this week',
+      All: 'No tasks yet.'
+    };
+    const filters = el('div', 'todo-filters');
+    filters.setAttribute('role', 'group');
+    filters.setAttribute('aria-label', 'Filter tasks by due date');
+
+    for (const filter of Object.keys(emptyStates)) {
+      const control = button(filter, 'todo-filter');
+      control.setAttribute('aria-pressed', String(filter === selectedFilter));
+      control.addEventListener('click', () => {
+        selectedFilter = filter;
+        for (const tab of filters.children) {
+          tab.setAttribute('aria-pressed', String(tab === control));
+        }
+        if (!add.disabled) render();
+      });
+      filters.appendChild(control);
+    }
 
     section.classList.add('slot', 'slot-todo');
     head.firstElementChild.appendChild(summary);
-    head.appendChild(add);
+    const actions = el('div', 'todo-head-actions');
+    actions.append(filters, add);
+    head.appendChild(actions);
     status.setAttribute('role', 'status');
     section.append(status, content);
     add.addEventListener('click', () => openEditor());
@@ -51,14 +75,24 @@
     }
 
     function render() {
-      const remaining = tasks.filter(task => !task.is_done).length;
-      summary.textContent = tasks.length ? remaining + ' of ' + tasks.length + ' open' : '';
-      if (!tasks.length) {
-        content.replaceChildren(el('p', 'empty', 'No tasks yet.'));
+      const lastDay = new Date();
+      if (selectedFilter === 'Week') lastDay.setDate(lastDay.getDate() + 7);
+      const cutoff = [
+        String(lastDay.getFullYear()).padStart(4, '0'),
+        String(lastDay.getMonth() + 1).padStart(2, '0'),
+        String(lastDay.getDate()).padStart(2, '0')
+      ].join('-');
+      const visible = selectedFilter === 'All'
+        ? tasks
+        : tasks.filter(task => task.due_date && task.due_date <= cutoff);
+      const remaining = visible.filter(task => !task.is_done).length;
+      summary.textContent = visible.length ? remaining + ' of ' + visible.length + ' open' : '';
+      if (!visible.length) {
+        content.replaceChildren(el('p', 'empty', emptyStates[selectedFilter]));
         return;
       }
 
-      const ordered = tasks.slice().sort((a, b) =>
+      const ordered = visible.slice().sort((a, b) =>
         Number(a.is_done) - Number(b.is_done) ||
         (a.due_date || '9999-12-32').localeCompare(b.due_date || '9999-12-32') ||
         b.created_at.localeCompare(a.created_at)
@@ -220,7 +254,7 @@
           setStatus(task ? 'Task updated.' : 'Task added.');
           dialog.close();
           const row = content.querySelector('[data-task-id="' + data.id + '"]');
-          row.querySelector(task ? '.todo-actions button' : 'input').focus();
+          (row?.querySelector(task ? '.todo-actions button' : 'input') || add).focus();
         } catch (error) {
           formError.textContent = errorMessage(error, 'Couldn’t save the task. Try again.');
         } finally {

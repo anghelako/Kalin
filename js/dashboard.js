@@ -16,6 +16,11 @@ function showUser(user) {
   const first = full.split(/\s+/)[0] || 'there';
   const nameEl = document.getElementById('first-name');
   const initialEl = document.getElementById('avatar-initial');
+  const profileName = document.querySelector('[data-profile-name]');
+  if (profileName) {
+    profileName.textContent = first;
+    profileName.parentElement.setAttribute('aria-label', 'Profile, ' + first);
+  }
   if (nameEl) nameEl.textContent = first;
   if (initialEl) initialEl.textContent = first.charAt(0).toUpperCase();
   const emailEl = document.getElementById('profile-email');
@@ -82,7 +87,7 @@ if (profile) {
 }
 
 /* =====================================================================
-   Circles: sidebar drawer + dashboard widget + "Create circle" dialog
+   Circles: rail + dashboard widget + "Create circle" dialog
    ===================================================================== */
 
 /* Legacy hash colors: only used when a circle has no stored color yet
@@ -108,11 +113,9 @@ const CIRCLE_PALETTE = [
   { hex: '#a9b8cc', name: 'Slate' }
 ];
 const ICON_CIRCLES = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>';
-const ICON_CHEVRON = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 const ICON_PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 const ICON_ALERT = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5M12 16h.01"/></svg>';
 const ICON_COPY = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/></svg>';
-const DRAWER_KEY = 'kalin.circlesOpen';
 
 let circles = [];
 let myRequests = [];       // requests I sent that are still pending
@@ -205,57 +208,34 @@ function openCircle(circle) {
   window.location.href = 'circle.html?id=' + encodeURIComponent(circle.id);
 }
 
-/* ---------- Sidebar drawer ---------- */
-
-function setDrawerOpen(group, open) {
-  // Hide the list's scrollbar while the open/close animation runs
-  group.classList.add('animating');
-  clearTimeout(group._animTimer);
-  group._animTimer = setTimeout(() => group.classList.remove('animating'), 300);
-  group.classList.toggle('collapsed', !open);
-  group.querySelector('.nav-toggle').setAttribute('aria-expanded', String(open));
-  try {
-    window.localStorage.setItem(DRAWER_KEY, open ? '1' : '0');
-  } catch (_) {
-    // Storage unavailable: the drawer just won't remember its state
-  }
-}
+/* ---------- Circle rail ---------- */
 
 function buildCirclesDrawer() {
-  const nav = document.querySelector('.nav');
-  if (!nav) return;
+  const rail = document.querySelector('.side');
+  if (!rail) return;
 
   const group = el('div', 'nav-group');
   group.id = 'circles-nav';
   group.innerHTML = `
-    <button type="button" class="nav-item nav-toggle" id="circles-toggle"
-            aria-expanded="true" aria-controls="circles-drawer" title="Circles">
-      ${ICON_CIRCLES}
-      <span>Circles</span>
-      ${ICON_CHEVRON}
-    </button>
     <div class="circle-drawer" id="circles-drawer">
       <ul class="circle-list" id="circle-list-items"></ul>
-    </div>`;
-  nav.appendChild(group);
+    </div>
+    <button type="button" class="nav-item nav-toggle" id="circles-toggle"
+            aria-haspopup="dialog" aria-controls="circle-dialog" title="Create circle"
+            aria-label="Create circle">
+      ${ICON_PLUS}
+      <span>Create circle</span>
+    </button>`;
+  rail.prepend(group);
+  group.querySelector('.nav-toggle').addEventListener('click', () => openCircleDialog('create'));
 
-  let open = true;
+  const circleTab = document.querySelector('[data-circle-tab]');
   try {
-    open = window.localStorage.getItem(DRAWER_KEY) !== '0';
+    const lastCircle = window.localStorage.getItem('kalin.lastCircle');
+    if (circleTab && lastCircle) circleTab.href = 'circle.html?id=' + encodeURIComponent(lastCircle);
   } catch (_) {
-    // Storage unavailable: stay open
+    // Keep the Home fallback if storage is unavailable.
   }
-  setDrawerOpen(group, open);
-
-  const narrow = window.matchMedia('(max-width: 860px)');
-  group.querySelector('.nav-toggle').addEventListener('click', () => {
-    if (narrow.matches) {
-      // The slim icon-only sidebar has no room for a list, so jump to the widget
-      window.location.href = 'dashboard.html#circles';
-      return;
-    }
-    setDrawerOpen(group, group.classList.contains('collapsed'));
-  });
 }
 
 const activeCircleId = new URLSearchParams(window.location.search).get('id');
@@ -280,9 +260,14 @@ function renderDrawer() {
     const button = el('button', 'circle-link');
     button.type = 'button';
     button.title = circle.name;
-    if (circle.id === activeCircleId) button.classList.add('active');
+    button.setAttribute('aria-label', circle.name);
+    if (circle.id === activeCircleId) {
+      button.classList.add('active');
+      button.setAttribute('aria-current', 'page');
+    }
 
-    const swatch = el('span', 'swatch');
+    const swatch = el('span', 'swatch', initialOf(circle.name));
+    swatch.setAttribute('aria-hidden', 'true');
     swatch.style.background = colorFor(circle);
 
     button.append(swatch, el('span', 'circle-name', circle.name));

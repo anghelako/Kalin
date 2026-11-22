@@ -539,7 +539,7 @@
 
     const head = el('header', 'panel-head');
     const text = el('div');
-    text.append(el('h2', '', 'Medication'), el('p', 'widget-sub', 'Today’s doses'));
+    text.append(el('h2', '', 'Today’s medication'));
 
     const actions = el('div', 'rx-head-actions');
     const pharmacy = el('a', 'btn-ghost small link-btn', 'Pharmacy');

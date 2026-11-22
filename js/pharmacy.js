@@ -74,6 +74,12 @@
     }
 
     circle = data;
+    try {
+      window.localStorage.setItem('kalin.lastCircle', circleId);
+    } catch (_) {
+      // The current page remains usable without persistent storage.
+    }
+    document.querySelector('[data-circle-tab]').href = 'circle.html?id=' + encodeURIComponent(circleId);
     owner = circle.created_by === currentUser.id;
     document.title = 'Pharmacy · ' + Rx.possessive(circle.name) + ' · Kalin';
     const back = document.getElementById('back-link');

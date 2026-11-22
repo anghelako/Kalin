@@ -12,28 +12,49 @@
 <link rel="stylesheet" href="css/dashboard.css">
 <link rel="stylesheet" href="css/circle.css">
 <link rel="stylesheet" href="css/pharmacy.css">
+<link rel="stylesheet" href="css/app-ui.css">
 </head>
 <body class="app">
 
-<aside class="side">
+<header class="app-header">
   <a class="brand-mark" href="dashboard.html">
     <img class="logo" src="images/kalin-logo.png" alt="" width="36" height="36">
-    <span class="wordmark">KALIN</span>
+    <span class="wordmark">Kalin</span>
   </a>
-
   <nav class="nav" aria-label="Main">
     <a class="nav-item" href="dashboard.html" title="Home">
       <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2z"/></svg>
       <span>Home</span>
     </a>
+    <a class="nav-item active" aria-current="page" href="dashboard.html" data-circle-tab>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>
+      <span>Circle</span>
+    </a>
     <a class="nav-item" href="calendar.html" title="Calendar">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
       <span>Calendar</span>
     </a>
+    <a class="nav-item" role="link" aria-disabled="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5"/><path d="M12 8v8m-4-4h8"/></svg>
+      <span>Pharmacy</span>
+    </a>
   </nav>
+  <div class="app-account">
+    <button type="button" class="icon-btn" id="notif" aria-label="Notifications">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <span class="dot" hidden></span>
+    </button>
 
+    <button type="button" class="avatar" id="profile" aria-label="Profile">
+      <span id="avatar-initial" aria-hidden="true">K</span>
+      <span data-profile-name>Profile</span>
+    </button>
+  </div>
+</header>
+
+<aside class="side" aria-label="Care circles">
   <div class="side-foot">
-    <button type="button" class="nav-item" id="signout" title="Sign out">
+    <button type="button" class="nav-item" id="signout" title="Sign out" aria-label="Sign out">
       <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       <span>Sign out</span>
     </button>
@@ -52,14 +73,6 @@
     <div class="top-actions">
       <button type="button" class="btn-handoff" id="handoff">Handoff brief</button>
 
-      <button type="button" class="icon-btn" id="notif" aria-label="Notifications">
-        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
-        <span class="dot" hidden></span>
-      </button>
-
-      <button type="button" class="avatar" id="profile" aria-label="Profile">
-        <span id="avatar-initial">K</span>
-      </button>
     </div>
   </header>
 
@@ -68,6 +81,81 @@
     <div id="circle-root" aria-live="polite"></div>
   </main>
 </div>
+
+<dialog id="circle-dialog" aria-labelledby="circle-dialog-title">
+  <form id="circle-form" novalidate>
+    <div class="dlg-head">
+      <div>
+        <span class="dlg-eyebrow">Circles</span>
+        <h3 id="circle-dialog-title">Create a circle</h3>
+      </div>
+      <button type="button" class="dlg-close" id="circle-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="dlg-body">
+      <div class="seg" role="tablist" aria-label="Create or join a circle">
+        <button type="button" class="seg-tab" role="tab" id="tab-create" aria-selected="true" aria-controls="panel-create">Create new</button>
+        <button type="button" class="seg-tab" role="tab" id="tab-join" aria-selected="false" aria-controls="panel-join" tabindex="-1">Join with code</button>
+      </div>
+
+      <!-- Create -->
+      <div id="panel-create" role="tabpanel" aria-labelledby="tab-create">
+        <p class="dlg-intro">A circle is a shared space for the family and caregivers looking after one person.</p>
+
+        <label class="l" for="circle-name">Circle name</label>
+        <div class="name-row">
+          <span class="badge-preview" id="badge-preview" aria-hidden="true">?</span>
+          <div class="field plain">
+            <input id="circle-name" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Care for Lola">
+          </div>
+        </div>
+
+        <label class="l" for="circle-desc">Description <span class="opt">(optional)</span></label>
+        <div class="field plain">
+          <input id="circle-desc" type="text" maxlength="120" autocomplete="off" placeholder="A short note about this circle">
+        </div>
+
+        <div class="color-block">
+          <div class="color-head">
+            <span class="color-label">Circle color</span>
+            <strong id="color-name">Mint</strong>
+          </div>
+          <div class="swatches" id="swatches"></div>
+          <p class="color-note">Picked for you automatically, so it never matches another one of your circles.</p>
+        </div>
+      </div>
+
+      <!-- Join -->
+      <div id="panel-join" role="tabpanel" aria-labelledby="tab-join" hidden>
+        <div id="join-entry">
+          <p class="dlg-intro">Enter the invite code from the circle’s owner. They’ll get your request and need to approve it before you can join.</p>
+
+          <label class="l" for="join-code">Invite code</label>
+          <div class="field plain">
+            <input id="join-code" class="code-input" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX">
+          </div>
+        </div>
+
+        <div class="join-sent" id="join-sent" hidden>
+          <div class="state-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          </div>
+          <p class="sent-title">Request sent</p>
+          <p class="sent-text" id="join-sent-text"></p>
+        </div>
+      </div>
+
+      <p class="hint nomatch" id="circle-error" role="alert"></p>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn-ghost" id="circle-cancel">Cancel</button>
+      <button type="submit" class="btn-solid" id="circle-save">Create circle</button>
+    </div>
+  </form>
+</dialog>
 
 <!-- Edit details (owners only) -->
 <dialog id="edit-dialog" aria-labelledby="edit-dialog-title">
