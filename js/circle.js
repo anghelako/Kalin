@@ -448,11 +448,13 @@
     evening: { name: 'Evening shift', time: '3:00 PM – 10:00 PM', from: 15, to: 22, order: 1 }
   };
   const BOARD_DAYS = 14;
+  const BOARD_PREVIEW_LIMIT = 3;
 
   let dutyDot = null;
   let dutyText = null;
   let dutyProgress = null;
   let dutyHours = null;
+  let dutyOpenShifts = null;
   let boardListEl = null;
   let boardStatusEl = null;
   let boardTimer = null;
@@ -485,6 +487,7 @@
     const shift = name && SLOT_INFO[slot];
     dutyProgress.hidden = !shift;
     dutyHours.hidden = !shift;
+    dutyOpenShifts.hidden = !!name;
     if (shift) {
       dutyProgress.max = (shift.to - shift.from) * 60;
       dutyProgress.value = (now.getHours() - shift.from) * 60 + now.getMinutes();
@@ -565,7 +568,7 @@
     }
 
     const list = el('ul', 'board-list');
-    rows.forEach(row => {
+    rows.slice(0, BOARD_PREVIEW_LIMIT).forEach(row => {
       const info = SLOT_INFO[row.slot];
       const item = el('li', 'board-item');
 
@@ -584,6 +587,12 @@
       list.appendChild(item);
     });
     boardListEl.appendChild(list);
+    const remaining = rows.length - BOARD_PREVIEW_LIMIT;
+    if (remaining > 0) {
+      const more = el('a', 'board-more', '+' + remaining + ' more in Calendar');
+      more.href = 'calendar.html';
+      boardListEl.appendChild(more);
+    }
   }
 
   async function loadBoard() {
@@ -621,6 +630,8 @@
   function boardCard() {
     const { section, head } = card('Open shifts', 'Next two weeks');
     section.classList.add('slot', 'slot-board');
+    section.id = 'open-shifts';
+    section.tabIndex = -1;
 
     const calendarLink = el('a', 'btn-ghost small link-btn', 'Calendar');
     calendarLink.href = 'calendar.html';
@@ -695,8 +706,6 @@
 
   function headerCard() {
     const section = el('section', 'circle-hero');
-    if (isOwner()) section.appendChild(settingsMenu());
-
     const shift = el('div', 'hero-shift');
     shift.appendChild(el('h2', 'hero-duty-label', 'On duty now'));
 
@@ -710,11 +719,16 @@
     dutyProgress.hidden = true;
     dutyHours = el('p', 'hero-hours');
     dutyHours.hidden = true;
-    shift.append(duty, dutyProgress, dutyHours);
+    dutyOpenShifts = el('a', 'hero-open-shifts', 'See open shifts');
+    dutyOpenShifts.href = '#open-shifts';
+    shift.append(duty, dutyProgress, dutyHours, dutyOpenShifts);
+
+    const actions = el('div', 'hero-actions');
+    if (handoffBtn) actions.appendChild(handoffBtn);
+    if (isOwner()) actions.appendChild(settingsMenu());
 
     const row = el('div', 'hero-row');
-    row.appendChild(shift);
-    if (handoffBtn) row.appendChild(handoffBtn);
+    row.append(actions, shift);
     section.appendChild(row);
 
     if (isOwner()) {
