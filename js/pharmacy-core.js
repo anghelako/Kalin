@@ -50,25 +50,22 @@ const KalinRx = (() => {
     return found ? found.label : 'Other';
   }
 
-  /* ---------- Dates and times (all wall-clock, in the viewer's own time zone) ---------- */
+  /* ---------- Manila dates and times ---------- */
 
-  function todayISO(date = new Date()) {
-    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+  function todayISO(date) {
+    return KalinTime.manilaToday(date);
   }
 
   function dayNumber(iso) {
-    const [y, m, d] = iso.split('-').map(Number);
-    return Date.UTC(y, m - 1, d) / 86400000;
+    return Date.parse(iso + 'T00:00:00Z') / 86400000;
   }
 
   function weekday(iso) {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    return new Date(iso + 'T00:00:00Z').getUTCDay();
   }
 
   function formatDay(iso) {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, {
+    return new Date(iso + 'T00:00:00Z').toLocaleDateString(undefined, {
       month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'
     });
   }
@@ -78,14 +75,14 @@ const KalinRx = (() => {
     return (h % 12 || 12) + ':' + pad(m) + ' ' + (h >= 12 ? 'PM' : 'AM');
   }
 
-  function formatStamp(value) { // a timestamp -> 'Nov 21, 7:45 PM' (local)
+  function formatStamp(value) { // a timestamp -> 'Nov 21, 7:45 PM' in Manila
     return new Date(value).toLocaleString(undefined, {
-      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: KalinTime.zone
     });
   }
 
-  function formatClock(value) { // a timestamp -> '7:45 PM' (local)
-    return new Date(value).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  function formatClock(value) { // a timestamp -> '7:45 PM' in Manila
+    return new Date(value).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: KalinTime.zone });
   }
 
   function minutesOf(time) {
@@ -164,13 +161,51 @@ const KalinRx = (() => {
 
   const SETUP_MESSAGE = 'The pharmacy isn’t set up in Supabase yet. Run supabase/pharmacy_setup.sql first.';
 
+  const ERROR_COPY = new Map([
+    ['shift_started', 'This shift has already started.'],
+    ['not_a_member', 'You’re no longer a member of this circle. Refresh the circle or return to Home.'],
+    ['shift_taken', 'This shift is no longer available to change.'],
+    ['shift_in_past', 'Pick today or a later date.'],
+    ['schedule_inactive', 'This medication schedule has been stopped.'],
+    ['item_inactive', 'This medicine is inactive or unavailable.'],
+    ['invalid_dose_slot', 'This time is no longer part of the schedule.'],
+    ['dose_slot_in_future', 'You can’t record a dose for a future date.'],
+    ['invalid_stock_amount', 'Enter a valid stock amount with up to two decimal places.'],
+    ['invalid_stock_threshold', 'Enter a valid threshold with up to two decimal places.'],
+    ['stock_limit_exceeded', 'This change is outside the supported stock range.'],
+    ['circle_creator_immutable', 'Circle ownership cannot be transferred.'],
+    ['circle_owner_immutable', 'The owner membership cannot be changed.'],
+    ['circle_owner_must_be_creator', 'Only the creator can own this circle.'],
+    ['circle_creator_must_be_owner', 'The creator must remain the owner.'],
+    ['circle_owner_cannot_leave', 'Owners must delete the circle to remove their ownership.'],
+    ['Schedule not found', 'This medication schedule could not be found.'],
+    ['As-needed doses don’t have a time slot', 'As-needed doses don’t have a time slot.'],
+    ['Dose not found', 'This dose could not be found.'],
+    ['This dose was already undone', 'This dose was already undone.'],
+    ['You can only undo doses you recorded', 'You can only undo doses you recorded.'],
+    ['The 15-minute undo window has passed. Ask the circle owner to undo it',
+      'The 15-minute undo window has passed. Ask the circle owner to undo it.'],
+    ['Medicine not found', 'This medicine could not be found.'],
+    ['Only the circle owner can add medicines', 'Only the circle owner can add medicines.'],
+    ['Only the circle owner can change stock', 'Only the circle owner can change stock.'],
+    ['Add a short note explaining the correction', 'Add a short note explaining the correction.'],
+    ['That medicine is already in the pharmacy', 'That medicine is already in the pharmacy.'],
+    ['Circle name must be between 1 and 60 characters.', 'Circle name must be between 1 and 60 characters.'],
+    ['Circle description must be 120 characters or fewer.', 'Circle description must be 120 characters or fewer.'],
+    ['This request is no longer pending or you cannot review it.', 'This request is no longer pending or you cannot review it.']
+  ]);
+
+  function databaseMessage(error, fallback = 'Something went wrong. Please try again.') {
+    return ERROR_COPY.get(error?.message) || fallback;
+  }
+
   function friendly(error, fallback) {
-    if (!error) return fallback || 'Something went wrong. Try again.';
     if (isMissing(error)) return SETUP_MESSAGE;
-    const text = error.message || '';
-    if (text.includes('row-level security')) return 'Only the circle owner can do that.';
-    if (text.includes('permission denied')) return 'You don’t have permission to do that.';
-    return text || fallback || 'Something went wrong. Try again.';
+    if (error?.code === '42501') return 'You don’t have permission to do that.';
+    if (/^You can’t remove more than the current stock \(-?\d+(?:\.\d+)?\)$/.test(error?.message)) {
+      return 'You can’t remove more than the current stock.';
+    }
+    return databaseMessage(error, fallback);
   }
 
   function possessive(name) {
@@ -183,6 +218,6 @@ const KalinRx = (() => {
     todayISO, dayNumber, weekday, formatDay, formatTime, formatStamp, formatClock,
     minutesOf, sameTime, dueOn, frequencyText,
     stockState, expiryState, chip, statusChips,
-    isMissing, friendly, possessive
+    isMissing, friendly, databaseMessage, possessive
   };
 })();

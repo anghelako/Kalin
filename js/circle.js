@@ -1,6 +1,7 @@
 /* Kalin circle page. Runs after dashboard.js, which provides: client, currentUser,
    el(), colorFor(), loadCircles(), window.kalinReady and the sidebar. */
 (function () {
+  const Time = KalinTime;
   const root = document.getElementById('circle-root');
   const circleId = new URLSearchParams(window.location.search).get('id');
 
@@ -8,7 +9,9 @@
 
   function formatDate(value) {
     const d = new Date(value);
-    return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return isNaN(d) ? '' : d.toLocaleDateString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric', timeZone: Time.zone
+    });
   }
 
   function isOwner() {
@@ -67,7 +70,7 @@
   function memberName(member) {
     if (currentUser && member.user_id === currentUser.id) {
       const meta = currentUser.user_metadata || {};
-      const full = (meta.full_name || meta.name || (currentUser.email || '').split('@')[0] || 'You').trim();
+      const full = meta.full_name?.trim() || meta.name?.trim() || 'Member';
       return full + ' (you)';
     }
     // Other members' names need a profiles table; until then show a neutral label
@@ -151,6 +154,14 @@
     menu.setAttribute('role', 'menu');
     menu.hidden = true;
 
+    if (owner) {
+      aiSettingBtn = el('button', 'settings-item');
+      aiSettingBtn.type = 'button';
+      aiSettingBtn.setAttribute('role', 'menuitem');
+      aiSettingBtn.addEventListener('click', changeAiSetting);
+      menu.appendChild(aiSettingBtn);
+    }
+
     const action = el('button', 'settings-item danger');
     action.type = 'button';
     action.setAttribute('role', 'menuitem');
@@ -186,6 +197,26 @@
   /* ---------- AI log, handoff brief and care notes ---------- */
 
   const KIND_LABEL = { handoff_brief: 'Handoff brief', summary: 'Summary' };
+  const AI_ERRORS = {
+    unauthorized: 'Please sign in again.',
+    ai_disabled: "AI drafts aren't available yet.",
+    not_a_member: 'You no longer have access to this circle.',
+    no_notes: 'Add a care note before requesting a draft.',
+    preview_unavailable: 'Couldn’t load the preview. Try again.',
+    preview_changed: 'The notes changed. Close this dialog and review a new preview.',
+    invalid_request: 'Close this preview and try again.',
+    body_too_large: 'The preview is too large to send.',
+    cooldown: 'Wait a minute before requesting another draft for this circle.',
+    daily_limit: 'You’ve reached today’s limit of 10 AI drafts.',
+    provider_busy: 'The AI service is busy. Try again later.',
+    provider_unavailable: 'The AI service is unavailable. Try again later.',
+    timeout: 'The AI service took too long. Try again later.',
+    unsafe_output: 'The draft could not be shown safely. Review the care notes instead.',
+    save_failed: 'Couldn’t save the draft. Try again later.',
+    origin_denied: 'This site is not allowed to use AI.',
+    not_owner: 'Only the circle owner can change this setting.'
+  };
+  const aiMessage = code => Object.hasOwn(AI_ERRORS, code) ? AI_ERRORS[code] : 'AI is unavailable. Try again later.';
 
   let aiEntries = [];
   let aiState = 'loading'; // 'loading' | 'ready' | 'error'
@@ -195,24 +226,42 @@
   let aiStatusEl = null;
   let aiStatusTimer = null;
   let generateBtn = null;
-  let addNoteBtn = null;
+  let aiSettingBtn = null;
+  let aiSettingBusy = false;
+  let aiUnavailable = false;
 
   const handoffBtn = document.getElementById('handoff');
+  const aiUnavailableKey = () => 'kalin.aiUnavailable.' + currentUser.id;
+
+  function canGenerateAi() {
+    return thisCircle?.ai_enabled === true && !aiUnavailable;
+  }
 
   function formatDateTime(value) {
     const d = new Date(value);
     return isNaN(d)
       ? ''
-      : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      : d.toLocaleString(undefined, {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: Time.zone
+      });
   }
 
   function setAiBusy(busy) {
     aiBusy = busy;
+    const hidden = !canGenerateAi();
     if (generateBtn) {
-      generateBtn.disabled = busy;
+      generateBtn.hidden = hidden;
+      generateBtn.disabled = busy || aiSettingBusy;
       generateBtn.textContent = busy ? 'Generating…' : 'Generate summary';
     }
-    if (handoffBtn) handoffBtn.disabled = busy;
+    if (handoffBtn) {
+      handoffBtn.hidden = hidden;
+      handoffBtn.disabled = busy || aiSettingBusy;
+    }
+    if (aiSettingBtn) {
+      aiSettingBtn.disabled = busy || aiSettingBusy;
+      aiSettingBtn.textContent = thisCircle.ai_enabled ? 'Disable AI drafts' : 'Enable AI drafts';
+    }
   }
 
   function flashStatus(text, isError) {
@@ -228,31 +277,65 @@
     try {
       if (error.context && typeof error.context.json === 'function') {
         const body = await error.context.json();
-        if (body && body.error) return String(body.error);
+          if (body?.code === 'ai_disabled') {
+            aiUnavailable = true;
+            try {
+              window.sessionStorage.setItem(aiUnavailableKey(), 'true');
+            } catch {
+              // The in-memory flag still applies when storage is unavailable.
+            }
+            setAiBusy(aiBusy);
+            flashStatus(aiMessage(body.code), true);
+          }
+          if (body && Object.hasOwn(AI_ERRORS, body.code)) return aiMessage(body.code);
       }
     } catch (_) {
-      // fall through to the generic messages
+      // A gateway or network error may have no JSON body.
     }
-    if (error.name === 'FunctionsFetchError') {
-      return 'Couldn’t reach the AI service. Check your connection, and that the handoff-brief function is deployed.';
-    }
-    return 'Something went wrong. Please try again.';
+    return aiMessage(error.context?.status === 401 ? 'unauthorized' : undefined);
   }
 
-  async function requestAi(kind) {
+  async function requestAi(circle, kind, notes) {
     const { data, error } = await client.functions.invoke('handoff-brief', {
-      body: { circle_id: thisCircle.id, kind }
+      body: { circle_id: circle, kind, notes }
     });
-    if (error) {
-      console.error('AI request failed:', error);
-      return { error: await functionErrorMessage(error) };
+    if (error) return { error: await functionErrorMessage(error) };
+    if (data?.verified_generation !== true || typeof data.body !== 'string' || !data.body) {
+      return { error: aiMessage() };
     }
-    if (!data || !data.body) return { error: 'The AI did not return anything. Please try again.' };
 
-    aiEntries.unshift({ id: data.id, kind, body: data.body, created_at: data.created_at });
+    aiEntries = [{ ...data, kind }, ...aiEntries.filter(entry => entry.id !== data.id)].slice(0, 20);
     aiState = 'ready';
     renderAiList();
     return { entry: data };
+  }
+
+  async function changeAiSetting() {
+    if (!isOwner() || aiBusy || aiSettingBusy) return;
+    const enabled = !thisCircle.ai_enabled;
+    if (enabled && !window.confirm(
+      'Allow this circle’s members to send reviewed, minimized care notes to Gemini for AI drafts? Enable only after getting consent for sharing.'
+    )) return;
+
+    aiSettingBusy = true;
+    setAiBusy(false);
+    try {
+      const { data, error } = await client.rpc('set_circle_ai_enabled', {
+        p_circle_id: thisCircle.id, p_enabled: enabled
+      });
+      if (error || data !== 'ok') {
+        flashStatus(aiMessage(error ? undefined : data), true);
+      } else {
+        thisCircle.ai_enabled = enabled;
+        if (aiUnavailable) flashStatus(aiMessage('ai_disabled'), true);
+        else flashStatus(enabled ? 'AI drafts are enabled for this circle.' : 'AI drafts are disabled for this circle.');
+      }
+    } catch {
+      flashStatus(aiMessage(), true);
+    } finally {
+      aiSettingBusy = false;
+      setAiBusy(false);
+    }
   }
 
   function renderAiList() {
@@ -280,7 +363,14 @@
         el('span', 'ai-kind', KIND_LABEL[entry.kind] || 'Summary'),
         el('span', '', formatDateTime(entry.created_at))
       );
-      item.append(meta, el('div', 'ai-body', entry.body));
+      item.appendChild(meta);
+      if (entry.verified_generation) {
+        item.append(el('p', 'hint', 'AI-generated draft. Not medical advice.'), el('div', 'ai-body', entry.body));
+      } else {
+        const history = document.createElement('details');
+        history.append(el('summary', '', 'Unverified historical draft. Not medical advice.'), el('div', 'ai-body', entry.body));
+        item.appendChild(history);
+      }
       list.appendChild(item);
     });
     aiListEl.appendChild(list);
@@ -292,16 +382,13 @@
 
     const { data, error } = await client
       .from('ai_log')
-      .select('id, kind, body, created_at')
+      .select('id, kind, body, created_at, verified_generation')
       .eq('circle_id', thisCircle.id)
       .order('created_at', { ascending: false })
       .limit(20);
 
     if (error) {
-      console.error('Could not load AI log:', error);
-      aiError = isMissingTable(error)
-        ? 'The AI log tables don’t exist in Supabase yet. Run the care_notes / ai_log SQL first.'
-        : 'Couldn’t load the AI log. Try refreshing the page.';
+      aiError = 'Couldn’t load the AI log. Try refreshing the page.';
       aiState = 'error';
     } else {
       aiEntries = data;
@@ -316,27 +403,21 @@
 
     const actions = el('div', 'panel-actions');
 
-    addNoteBtn = el('button', 'btn-ghost small', 'Add note');
+    const addNoteBtn = el('button', 'btn-ghost small', 'Add note');
     addNoteBtn.type = 'button';
     addNoteBtn.addEventListener('click', openNote);
 
     generateBtn = el('button', 'btn-solid small', 'Generate summary');
     generateBtn.type = 'button';
-    generateBtn.disabled = aiBusy;
-    generateBtn.addEventListener('click', async () => {
-      if (aiBusy) return;
-      setAiBusy(true);
-      flashStatus('');
-      const result = await requestAi('summary');
-      setAiBusy(false);
-      if (result.error) flashStatus(result.error, true);
-    });
+    generateBtn.addEventListener('click', () => openBrief('summary'));
 
     actions.append(addNoteBtn, generateBtn);
+    setAiBusy(aiBusy);
     head.appendChild(actions);
 
     aiStatusEl = el('p', 'ai-status');
     aiStatusEl.setAttribute('role', 'status');
+    if (aiUnavailable) flashStatus(aiMessage('ai_disabled'), true);
     aiListEl = el('div', 'ai-list');
     section.append(aiStatusEl, aiListEl);
 
@@ -350,34 +431,109 @@
   const briefStatus = document.getElementById('brief-status');
   const briefText = document.getElementById('brief-text');
   const briefCopy = document.getElementById('brief-copy');
+  const briefDone = document.getElementById('brief-done');
+  const briefTitle = document.getElementById('brief-dialog-title');
+  const briefPreview = el('div', 'handoff-preview');
+  const briefSend = el('button', 'btn-solid', 'Send to AI');
+  briefSend.type = 'button';
+  briefSend.hidden = true;
+  briefText.before(briefPreview);
+  briefDone.before(briefSend);
+  let activePreview = null;
 
-  async function openBrief() {
-    if (!thisCircle || aiBusy) return;
-
-    briefText.textContent = '';
-    briefStatus.textContent = 'Writing the handoff brief…';
-    briefStatus.classList.remove('is-error');
-    briefCopy.disabled = true;
-    briefCopy.textContent = 'Copy';
-    briefDialog.showModal();
-
-    setAiBusy(true);
-    const result = await requestAi('handoff_brief');
-    setAiBusy(false);
-
-    if (result.error) {
-      briefStatus.textContent = result.error;
-      briefStatus.classList.add('is-error');
-      return;
-    }
-    briefStatus.textContent = '';
-    briefText.textContent = result.entry.body;
-    briefCopy.disabled = false;
+  function previewError(code) {
+    briefStatus.textContent = aiMessage(code);
+    briefStatus.classList.add('is-error');
   }
 
-  if (handoffBtn) handoffBtn.addEventListener('click', openBrief);
+  async function openBrief(kind) {
+    if (!canGenerateAi() || aiBusy || aiSettingBusy || briefDialog.open) return;
+    const session = { kind, circleId: thisCircle.id, notes: null };
+    activePreview = session;
+    briefTitle.textContent = KIND_LABEL[kind];
+    briefText.textContent = '';
+    briefPreview.replaceChildren();
+    briefStatus.textContent = 'Loading preview…';
+    briefStatus.classList.remove('is-error');
+    briefCopy.disabled = true;
+    briefCopy.hidden = true;
+    briefCopy.textContent = 'Copy';
+    briefDone.textContent = 'Cancel';
+    briefSend.hidden = true;
+    briefDialog.showModal();
+
+    try {
+      const { firstCharacters, loadHandoffNotes } = await import('../supabase/functions/_shared/handoff-content.mjs');
+      const result = await loadHandoffNotes(client, session.circleId);
+      if (activePreview !== session || !briefDialog.open) return;
+      if (result.code) {
+        previewError(result.code);
+        return;
+      }
+      session.notes = result.notes;
+      const count = result.notes.length;
+      briefStatus.textContent = count + (count === 1 ? ' note will be sent to Gemini.' : ' notes will be sent to Gemini.');
+      const list = el('ol', 'handoff-preview-notes');
+      for (const note of result.notes) {
+        const item = document.createElement('li');
+        const date = el('time', '', note.date);
+        date.dateTime = note.date;
+        const excerpt = firstCharacters(note.text, 80);
+        item.append(date, el('p', '', excerpt === note.text ? excerpt : excerpt + '…'));
+        if (excerpt !== note.text) {
+          const more = document.createElement('details');
+          more.append(el('summary', '', 'Show full text to be sent'), el('p', '', note.text));
+          item.appendChild(more);
+        }
+        list.appendChild(item);
+      }
+      briefPreview.replaceChildren(list);
+      briefSend.hidden = false;
+      briefDone.focus();
+    } catch {
+      if (activePreview === session && briefDialog.open) previewError('preview_unavailable');
+    }
+  }
+
+  briefSend.addEventListener('click', async () => {
+    const session = activePreview;
+    if (!session?.notes || !canGenerateAi() || aiBusy || aiSettingBusy || !briefDialog.open) return;
+    const notes = session.notes;
+    session.notes = null;
+    briefSend.hidden = true;
+    briefDone.textContent = 'Close';
+    briefPreview.replaceChildren();
+    briefStatus.textContent = 'Writing the draft…';
+    setAiBusy(true);
+    try {
+      const result = await requestAi(session.circleId, session.kind, notes);
+      if (activePreview !== session || !briefDialog.open) return;
+      if (result.error) {
+        briefStatus.textContent = result.error;
+        briefStatus.classList.add('is-error');
+        return;
+      }
+      briefStatus.textContent = '';
+      briefText.textContent = result.entry.body;
+      briefCopy.hidden = false;
+      briefCopy.disabled = false;
+    } catch {
+      if (activePreview === session && briefDialog.open) previewError();
+    } finally {
+      setAiBusy(false);
+    }
+  });
+
+  if (handoffBtn) handoffBtn.addEventListener('click', () => openBrief('handoff_brief'));
   document.getElementById('brief-close').addEventListener('click', () => briefDialog.close());
-  document.getElementById('brief-done').addEventListener('click', () => briefDialog.close());
+  briefDone.addEventListener('click', () => briefDialog.close());
+  briefDialog.addEventListener('close', () => {
+    if (briefDialog.open) return;
+    activePreview = null;
+    briefPreview.replaceChildren();
+    briefText.textContent = '';
+    briefSend.hidden = true;
+  });
   briefDialog.addEventListener('click', e => {
     if (e.target === briefDialog) briefDialog.close();
   });
@@ -432,10 +588,9 @@
     noteSave.textContent = 'Save note';
 
     if (error) {
-      console.error('Could not save note:', error);
       noteError.textContent = isMissingTable(error)
-        ? 'The care_notes table doesn’t exist in Supabase yet. Run the SQL setup first.'
-        : error.message;
+        ? 'Saving care notes isn’t available yet.'
+        : 'Couldn’t save the note. Try again.';
       return;
     }
 
@@ -446,8 +601,8 @@
   /* ---------- Shifts: who's on duty + volunteering board ---------- */
 
   const SLOT_INFO = {
-    morning: { name: 'Morning shift', time: '7:00 AM – 3:00 PM', from: 7, to: 15, order: 0 },
-    evening: { name: 'Evening shift', time: '3:00 PM – 10:00 PM', from: 15, to: 22, order: 1 }
+    morning: { name: 'Morning shift', time: '7:00 AM – 3:00 PM', order: 0 },
+    evening: { name: 'Evening shift', time: '3:00 PM – 10:00 PM', order: 1 }
   };
   const BOARD_DAYS = 14;
   const BOARD_PREVIEW_LIMIT = 3;
@@ -463,49 +618,47 @@
   let boardBusy = false;
 
   function localYmd(date) {
-    return date.getFullYear() + '-' +
-      String(date.getMonth() + 1).padStart(2, '0') + '-' +
-      String(date.getDate()).padStart(2, '0');
+    return Time.manilaToday(date);
   }
 
   function currentSlot(now) {
-    const hour = now.getHours() + now.getMinutes() / 60;
-    return Object.keys(SLOT_INFO).find(key => hour >= SLOT_INFO[key].from && hour < SLOT_INFO[key].to) || null;
+    return Time.currentSlot(now);
   }
 
   function nameOf(row) {
+    const name = row.assigned_name?.trim() || row.profiles?.full_name?.trim();
     if (row.assigned_to && currentUser && row.assigned_to === currentUser.id) {
       const meta = currentUser.user_metadata || {};
-      const full = (meta.full_name || meta.name || (currentUser.email || '').split('@')[0] || 'You').trim();
+      const full = name || meta.full_name?.trim() || meta.name?.trim() || 'Member';
       return full + ' (you)';
     }
-    return (row.profiles && row.profiles.full_name) || 'Member';
+    return name || 'Member';
   }
 
   function setDuty(name, slot, now) {
     if (!dutyText || !dutyDot) return;
     dutyText.textContent = name || 'No one assigned';
     dutyDot.classList.toggle('on', !!name);
-    const shift = name && SLOT_INFO[slot];
+    const shift = name && Time.slots[slot];
     dutyProgress.hidden = !shift;
     dutyHours.hidden = !shift;
     dutyOpenShifts.hidden = !!name;
     if (shift) {
       dutyProgress.max = (shift.to - shift.from) * 60;
-      dutyProgress.value = (now.getHours() - shift.from) * 60 + now.getMinutes();
-      dutyHours.textContent = shift.time;
+      dutyProgress.value = Time.manilaNow(now).minutes - shift.from * 60;
+      dutyHours.textContent = SLOT_INFO[slot].time;
     }
   }
 
   async function loadDuty() {
     if (!thisCircle) return;
-    const now = new Date();
+    const now = Time.now();
     const slot = currentSlot(now);
     if (!slot) { setDuty(null); return; }
 
     const { data, error } = await client
       .from('shifts')
-      .select('assigned_to, profiles:assigned_to(full_name)')
+      .select('assigned_to, assigned_name, profiles:assigned_to(full_name)')
       .eq('circle_id', thisCircle.id)
       .eq('shift_date', localYmd(now))
       .eq('slot', slot)
@@ -528,12 +681,19 @@
   }
 
   function boardDayLabel(value) {
-    const [y, m, d] = value.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return new Date(value + 'T00:00:00Z').toLocaleDateString(undefined, {
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC'
+    });
   }
 
   async function volunteerFor(shiftId) {
     if (boardBusy) return;
+    const shift = boardRows.find(row => row.id === shiftId);
+    if (shift && Time.hasStarted(shift)) {
+      boardStatus(KalinRx.databaseMessage({ message: 'shift_started' }), true);
+      await loadBoard();
+      return;
+    }
     boardBusy = true;
     boardStatus('');
     renderBoard(boardRows, true);
@@ -544,7 +704,7 @@
     if (error) {
       console.error('Could not volunteer:', error);
       boardStatus(
-        error.code === 'P0001' && error.message ? error.message : 'Something went wrong. Please try again.',
+        KalinRx.databaseMessage(error),
         true
       );
     } else {
@@ -557,9 +717,26 @@
   let boardRows = [];
   let boardState = 'loading';
   let boardError = '';
+  const boardButtons = new Map();
+
+  function updateBoardButtons(disabled = boardBusy) {
+    const now = Time.now();
+    for (const [row, button] of boardButtons) {
+      const started = Time.hasStarted(row, now);
+      button.disabled = disabled || started;
+      if (started) {
+        button.title = 'This shift has already started.';
+        button.setAttribute('aria-label', 'Volunteer unavailable. This shift has already started.');
+      } else {
+        button.removeAttribute('title');
+        button.removeAttribute('aria-label');
+      }
+    }
+  }
 
   function renderBoard(rows, disabled) {
     if (!boardListEl) return;
+    boardButtons.clear();
     boardListEl.replaceChildren();
 
     if (boardState === 'loading') { boardListEl.appendChild(el('p', 'empty', 'Loading…')); return; }
@@ -582,12 +759,13 @@
 
       const button = el('button', 'btn-solid small', 'Volunteer');
       button.type = 'button';
-      button.disabled = !!disabled;
+      boardButtons.set(row, button);
       button.addEventListener('click', () => volunteerFor(row.id));
 
       item.append(text, button);
       list.appendChild(item);
     });
+    updateBoardButtons(disabled);
     boardListEl.appendChild(list);
     const remaining = rows.length - BOARD_PREVIEW_LIMIT;
     if (remaining > 0) {
@@ -599,17 +777,16 @@
 
   async function loadBoard() {
     if (!thisCircle) return;
-    const start = new Date();
-    const end = new Date();
-    end.setDate(end.getDate() + BOARD_DAYS - 1);
+    const start = localYmd();
+    const end = Time.addDays(start, BOARD_DAYS - 1);
 
     const { data, error } = await client
       .from('shifts')
-      .select('id, shift_date, slot')
+      .select('id, shift_date, slot, assigned_to, assigned_name')
       .eq('circle_id', thisCircle.id)
       .is('assigned_to', null)
-      .gte('shift_date', localYmd(start))
-      .lte('shift_date', localYmd(end))
+      .gte('shift_date', start)
+      .lte('shift_date', end)
       .order('shift_date', { ascending: true });
 
     if (error) {
@@ -767,7 +944,7 @@
 
     const { data, error } = await client
       .from('circles')
-      .select('id, name, description, created_by, created_at, is_active, circle_members(user_id, role, joined_at)')
+      .select('id, name, description, created_by, created_at, is_active, ai_enabled, circle_members(user_id, role, joined_at)')
       .eq('id', circleId)
       .maybeSingle();
 
@@ -781,6 +958,11 @@
 
     thisCircle = data;
     try {
+      aiUnavailable ||= window.sessionStorage.getItem(aiUnavailableKey()) === 'true';
+    } catch {
+      // Storage may be unavailable.
+    }
+    try {
       window.localStorage.setItem('kalin.lastCircle', circleId);
     } catch (_) {
       // The current page remains usable without persistent storage.
@@ -790,7 +972,10 @@
     loadAiLog();
     loadDuty();
     loadBoard();
-    setInterval(loadDuty, 60000); // keep "on duty" current across shift changes
+    Time.onMinute(() => {
+      loadDuty();
+      updateBoardButtons();
+    });
   }
 
   /* ---------- Edit dialog ---------- */
@@ -837,7 +1022,9 @@
 
     if (error || !data) {
       console.error('Could not update circle:', error);
-      editError.textContent = error ? error.message : 'You don’t have permission to change this circle.';
+      editError.textContent = error
+        ? KalinRx.databaseMessage(error, 'Couldn’t save this circle. Try again.')
+        : 'You don’t have permission to change this circle.';
       return;
     }
 
@@ -873,7 +1060,7 @@
       console.error('Could not leave circle:', error);
       settingsButton.disabled = false;
       settingsButton.focus();
-      window.alert('Couldn’t confirm you left this circle. Refresh the page and try again.');
+      window.alert(KalinRx.databaseMessage(error, 'Couldn’t confirm you left this circle. Refresh the page and try again.'));
       return;
     }
 
@@ -901,7 +1088,9 @@
 
     if (error || !data || !data.length) {
       console.error('Could not delete circle:', error);
-      window.alert(error ? error.message : 'You don’t have permission to delete this circle.');
+      window.alert(error
+        ? KalinRx.databaseMessage(error, 'Couldn’t delete this circle. Try again.')
+        : 'You don’t have permission to delete this circle.');
       return;
     }
     window.location.replace('dashboard.html');

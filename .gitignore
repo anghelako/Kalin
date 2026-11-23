@@ -5,4 +5,8 @@ Thumbs.db
 .vscode/
 node_modules/
 .env
-README.md
+supabase/.temp/
+supabase/.branches/
+.env*
+*.dump
+*.sql.bak

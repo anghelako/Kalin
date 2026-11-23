@@ -1,12 +1,15 @@
 /* Care alerts and Home dashboard. The shared bootstrap owns the session and circle mutations. */
 (function () {
   const Rx = KalinRx;
+  const Time = KalinTime;
   const byId = id => document.getElementById(id);
   const slots = {
-    morning: { name: 'Morning', from: 7, to: 15, hours: '7:00–15:00' },
-    evening: { name: 'Evening', from: 15, to: 22, hours: '15:00–22:00' }
+    morning: { name: 'Morning', hours: '7:00–15:00' },
+    evening: { name: 'Evening', hours: '15:00–22:00' }
   };
-  const dayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const dayLabel = new Intl.DateTimeFormat(undefined, {
+    weekday: 'short', month: 'short', day: 'numeric', timeZone: Time.zone
+  });
 
   function makeButton(label, className = 'btn-ghost small') {
     const button = el('button', className, label);
@@ -72,33 +75,26 @@
     return row;
   }
 
-  function addDays(date, days) {
-    const result = new Date(date);
-    result.setDate(date.getDate() + days);
-    return result;
-  }
-
-  function shiftStart(row) {
-    const date = new Date(row.shift_date + 'T00:00:00');
-    date.setHours(slots[row.slot].from);
-    return date;
-  }
+  const shiftStart = Time.shiftStart;
 
   function orderedShifts(rows) {
     return rows.filter(row => slots[row.slot]).slice().sort((a, b) => shiftStart(a) - shiftStart(b));
   }
 
-  function createSnapshot(user) {
-    const now = new Date();
-    const today = Rx.todayISO(now);
-    const weekEnd = Rx.todayISO(addDays(now, 6));
-    const membership = new Map(circles.map(circle => [circle.id, circle]));
+  function createSnapshot(user, previous) {
+    const now = Time.now();
+    const today = Time.manilaToday(now);
+    const weekEnd = Time.addDays(today, 6);
+    const upcomingSlots = Object.keys(slots).filter(slot => !Time.hasStarted({ shift_date: today, slot }, now));
+    const shiftWindow = [today, Time.currentSlot(now), ...upcomingSlots].join('|');
+    const membership = previous?.membership ?? new Map(circles.map(circle => [circle.id, circle]));
     const ids = [...membership.keys()];
-    const owners = circles.filter(circle => circle.role === 'owner').map(circle => circle.id);
-    const cache = new Map();
+    const owners = [...membership.values()].filter(circle => circle.role === 'owner').map(circle => circle.id);
+    const cache = previous?.cache ?? new Map();
 
-    function query(key, table, columns, refine, { limit, circleIds = ids } = {}) {
-      if (cache.has(key)) return cache.get(key);
+    function query(key, table, columns, refine, { limit, circleIds = ids, scope } = {}) {
+      const cached = cache.get(key);
+      if (cached && cached.scope === scope) return cached.promise;
       const promise = (async () => {
         if (!circleIds.length) return [];
         const results = [];
@@ -111,29 +107,34 @@
           if (limit || data.length < pageSize) return results;
         }
       })().catch(error => {
-        cache.delete(key);
+        if (cache.get(key)?.promise === promise) cache.delete(key);
         throw error;
       });
-      cache.set(key, promise);
+      cache.set(key, { promise, scope });
       return promise;
     }
 
     return {
-      user, now, today, membership, pending: myRequests.slice(),
+      user, now, today, shiftWindow, cache, membership, pending: previous?.pending ?? myRequests.slice(),
       items: () => query('items', 'pharmacy_items',
         'id,circle_id,name,stock,low_stock_threshold,expires_on,is_active', row => row),
       schedules: () => query('schedules', 'medication_schedules',
         'id,circle_id,item_id,frequency,days_of_week,interval_days,times,start_date,end_date,is_active',
         row => row.eq('is_active', true)),
       doses: () => query('doses', 'medication_doses', 'id,circle_id,schedule_id,slot_date,slot_time',
-        row => row.eq('status', 'taken').eq('slot_date', today)),
+        row => row.eq('status', 'taken').eq('slot_date', today), { scope: today }),
       tasks: () => query('tasks', 'circle_tasks', 'id,circle_id,title,due_date,is_done',
-        row => row.lte('due_date', today)),
-      shifts: () => query('shifts', 'shifts', 'id,circle_id,shift_date,slot,assigned_to,profiles:assigned_to(full_name)',
-        row => row.gte('shift_date', today).lte('shift_date', weekEnd)),
-      nextShifts: () => query('nextShifts', 'shifts', 'id,circle_id,shift_date,slot,assigned_to',
-        row => row.eq('assigned_to', user.id).gte('shift_date', today).order('shift_date').order('slot', { ascending: false }),
-        { limit: 3 }),
+        row => row.lte('due_date', today), { scope: today }),
+      shifts: () => query('shifts', 'shifts', 'id,circle_id,shift_date,slot,assigned_to,assigned_name,profiles:assigned_to(full_name)',
+        row => row.gte('shift_date', today).lte('shift_date', weekEnd), { scope: today }),
+      nextShifts: () => query('nextShifts', 'shifts', 'id,circle_id,shift_date,slot,assigned_to,assigned_name',
+        row => {
+          const mine = row.eq('assigned_to', user.id).order('shift_date').order('slot', { ascending: false });
+          return upcomingSlots.length
+            ? mine.or('shift_date.gt.' + today + ',and(shift_date.eq.' + today + ',slot.in.(' + upcomingSlots.join(',') + '))')
+            : mine.gt('shift_date', today);
+        },
+        { limit: 3, scope: [today, ...upcomingSlots].join('|') }),
       requests: () => query('requests', 'circle_join_requests',
         'id,circle_id,user_id,circle_name,requester_name,requester_email,created_at',
         row => row.eq('status', 'pending').neq('user_id', user.id).order('created_at'), { circleIds: owners }),
@@ -168,7 +169,7 @@
 
   async function careFlags(data) {
     const [{ items, doses }, tasks, shifts] = await Promise.all([medication(data), data.tasks(), data.shifts()]);
-    const nowMinutes = data.now.getHours() * 60 + data.now.getMinutes();
+    const nowMinutes = Time.manilaNow(data.now).minutes;
     const overdueDoses = [];
     const dueDoses = [];
     for (const dose of doses) {
@@ -189,20 +190,19 @@
     });
     const end = +data.now + 48 * 60 * 60 * 1000;
     const openShifts = orderedShifts(shifts).filter(shift => {
-      const start = +shiftStart(shift);
-      return !shift.assigned_to && start >= +data.now && start <= end;
+      return !shift.assigned_to && !Time.hasStarted(shift, data.now) && +shiftStart(shift) <= end;
     });
     return { overdueDoses, dueDoses, overdueTasks, stock, openShifts };
   }
 
   async function readAttention(data) {
-    data.care = careFlags(data);
-    const [requests, care] = await Promise.allSettled([data.requests(), data.care]);
+    const [requests, care] = await Promise.allSettled([data.requests(), careFlags(data)]);
     const flags = care.status === 'fulfilled' ? care.value : {
       overdueDoses: [], dueDoses: [], overdueTasks: [], stock: [], openShifts: []
     };
     return {
       requests: requests.status === 'fulfilled' ? requests.value : [],
+      flags,
       rows: attentionRows(flags),
       incomplete: requests.status === 'rejected' || care.status === 'rejected'
     };
@@ -316,7 +316,7 @@
     return;
   }
 
-  const activityDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+  const activityDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', timeZone: Time.zone });
   const media = matchMedia('(max-width: 680px)');
   const activityPanel = byId('home-activity-panel');
   const activityMore = byId('home-activity-more');
@@ -349,23 +349,27 @@
   const attentionCount = byId('home-attention-count');
   const requestsPanel = byId('requests');
   const requestList = byId('request-list');
+  let renderedRequests;
 
   function renderAttention(data, requests, rows) {
     const total = requests.length + rows.length;
     attentionCount.textContent = String(total);
     attentionCount.hidden = false;
-    requestsPanel.hidden = !requests.length;
-    requestList.replaceChildren(...requests.slice(0, 5).map(request => joinRow(request, data.membership.get(request.circle_id))));
+    if (renderedRequests !== requests) {
+      renderedRequests = requests;
+      requestsPanel.hidden = !requests.length;
+      requestList.replaceChildren(...requests.slice(0, 5).map(request => joinRow(request, data.membership.get(request.circle_id))));
+      if (requests.length && location.hash === '#requests') requestsPanel.scrollIntoView();
+    }
     attentionBody.replaceChildren(...rows.slice(0, Math.max(0, 5 - requests.length))
       .map(({ circleId, label, status, kind, symbol }) =>
         attentionRow(data.membership.get(circleId), label, status, kind, symbol)));
     if (!total) attentionBody.appendChild(empty('All clear'));
-    if (requests.length && location.hash === '#requests') requestsPanel.scrollIntoView();
   }
 
   function renderShifts(data, shifts) {
     const body = byId('home-shifts-body');
-    body.replaceChildren(...orderedShifts(shifts).map(shift => {
+    body.replaceChildren(...orderedShifts(shifts).filter(shift => !Time.hasStarted(shift, data.now)).map(shift => {
       const circle = data.membership.get(shift.circle_id);
       const slot = slots[shift.slot];
       const row = el('div', 'home-shift-row');
@@ -377,15 +381,15 @@
   }
 
   function onDutyName(data, shift) {
-    if (shift.assigned_to !== data.user.id) return shift.profiles?.full_name || 'Member';
+    const name = shift.assigned_name?.trim() || shift.profiles?.full_name?.trim();
+    if (shift.assigned_to !== data.user.id) return name || 'Member';
     const meta = data.user.user_metadata || {};
-    return (meta.full_name || meta.name || (data.user.email || '').split('@')[0] || 'You').trim() + ' (you)';
+    return (name || meta.full_name?.trim() || meta.name?.trim() || 'Member') + ' (you)';
   }
 
   function renderCirclesCard(data, shifts) {
     const grid = byId('circle-grid');
-    const hour = data.now.getHours() + data.now.getMinutes() / 60;
-    const activeSlot = Object.keys(slots).find(key => hour >= slots[key].from && hour < slots[key].to);
+    const activeSlot = Time.currentSlot(data.now);
     const duty = new Map(shifts.filter(shift => shift.shift_date === data.today && shift.slot === activeSlot && shift.assigned_to)
       .map(shift => [shift.circle_id, onDutyName(data, shift)]));
     const rows = [...data.membership.values()].slice(0, 3).map(circle => {
@@ -541,128 +545,92 @@
   const briefAction = byId('home-brief-action');
   const briefUpdated = byId('home-brief-updated');
   const briefCard = briefBody.closest('.home-brief');
-  let briefMode = 'load';
-  let briefBusy = false;
+  briefCard.querySelector('.home-brief-note')?.remove();
 
-  function briefState(message, action, { busy = false, disabled = false, saved } = {}) {
+  function briefState(message, { busy = false, updated } = {}) {
     briefBody.textContent = message;
     briefCard.setAttribute('aria-busy', String(busy));
-    briefAction.textContent = action;
-    briefAction.disabled = busy || disabled;
-    briefUpdated.hidden = !saved;
-    if (saved) {
-      briefUpdated.dateTime = saved.created_at;
-      briefUpdated.textContent = 'Updated ' + Rx.formatClock(saved.created_at);
+    briefAction.textContent = 'Refresh';
+    briefAction.disabled = busy;
+    briefUpdated.hidden = !updated;
+    if (updated) {
+      briefUpdated.dateTime = updated.toISOString();
+      briefUpdated.textContent = 'Updated ' + Rx.formatClock(updated);
     }
   }
 
-  function showBrief(saved) {
-    briefMode = 'generate';
-    briefState(saved?.body || 'No brief yet', saved?.body ? 'Refresh' : 'Generate', { saved });
+  function showBrief(data, result) {
+    const { flags, requests, incomplete } = result;
+    const countLabel = (count, singular, plural) => count ? count + ' ' + (count === 1 ? singular : plural) : '';
+    const counts = [
+      countLabel(flags.overdueDoses.length, 'overdue dose', 'overdue doses'),
+      countLabel(flags.dueDoses.length, 'dose due now', 'doses due now'),
+      countLabel(flags.overdueTasks.length, 'overdue task', 'overdue tasks'),
+      countLabel(flags.stock.filter(({ item }) => Rx.stockState(item) !== 'ok').length,
+        'item low or out of stock', 'items low or out of stock'),
+      countLabel(flags.openShifts.length, 'open shift in the next 48 hours', 'open shifts in the next 48 hours'),
+      countLabel(requests.length, 'join request to review', 'join requests to review'),
+      countLabel(data.pending.length, 'join request awaiting approval', 'join requests awaiting approval')
+    ].filter(Boolean);
+    const summary = counts.length
+      ? counts.join(' · ') + '.'
+      : incomplete ? 'Couldn’t load today’s brief.' : 'You’re all caught up.';
+    briefState(incomplete && counts.length ? summary + ' Some items couldn’t load.' : summary,
+      { updated: incomplete ? undefined : data.now });
   }
 
-  async function loadBrief() {
-    if (briefBusy) return;
-    briefBusy = true;
-    briefMode = 'load';
-    briefState('Loading brief…', 'Generate', { busy: true });
-    try {
-      const { data, error } = await client.from('home_digests').select('id,body,created_at')
-        .eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (error) {
-        if (isMissingTable(error)) {
-          briefState('The brief isn’t set up yet', 'Generate', { disabled: true });
-          return;
-        }
-        throw error;
-      }
-      showBrief(data);
-    } catch (_) {
-      briefState('Couldn’t load the brief', 'Retry');
-    } finally {
-      briefBusy = false;
-    }
-  }
-
-  function makeFacts(data, flags) {
-    const shortName = (name, cap) => Array.from(name).slice(0, cap).join('');
-    const circlesWithCounts = [...data.membership.values()].map(circle => {
-      const counts = {
-        overdueDoses: flags.overdueDoses.filter(row => row.circleId === circle.id).length,
-        dueDoses: flags.dueDoses.filter(row => row.circleId === circle.id).length,
-        overdueTasks: flags.overdueTasks.filter(row => row.circle_id === circle.id).length,
-        inventoryAlerts: flags.stock.filter(row => row.item.circle_id === circle.id).length,
-        openShifts: flags.openShifts.filter(row => row.circle_id === circle.id).length
-      };
-      return { id: circle.id, name: shortName(circle.name, 60), counts };
-    }).sort((a, b) => {
-      const sum = row => Object.values(row.counts).reduce((total, count) => total + count, 0);
-      return sum(b) - sum(a);
-    }).slice(0, 20);
-    const index = new Map(circlesWithCounts.map((circle, position) => [circle.id, position]));
-    const doseFact = (dose, type) => ({
-      type, circle: index.get(dose.circleId), name: shortName(dose.item.name, 80), time: dose.time.slice(0, 5)
-    });
-    const items = [
-      ...flags.overdueDoses.map(dose => doseFact(dose, 'overdueDose')),
-      ...flags.dueDoses.map(dose => doseFact(dose, 'dueDose')),
-      ...flags.stock.filter(({ item }) => Rx.stockState(item) !== 'ok')
-        .map(({ item }) => ({ type: 'lowStock', circle: index.get(item.circle_id), name: shortName(item.name, 80) })),
-      ...flags.openShifts.map(shift => ({
-        type: 'openShift', circle: index.get(shift.circle_id), day: shift.shift_date, slot: shift.slot
-      }))
-    ].filter(item => item.circle !== undefined).slice(0, 10);
-    return { circles: circlesWithCounts.map(({ name, counts }) => ({ name, counts })), items };
-  }
-
-  async function generateBrief() {
-    if (briefBusy) return;
-    briefBusy = true;
-    briefState('Generating…', 'Generating…', { busy: true });
-    try {
-      const current = snapshot;
-      if (!current?.care) throw new Error('Home facts unavailable');
-      const flags = await current.care;
-      if (snapshot !== current) throw new Error('Home facts changed');
-      const facts = makeFacts(current, flags);
-      const { data, error } = await client.functions.invoke('home-digest', { body: { facts } });
-      const status = error?.context?.status;
-      if (status === 404 || status === 503) {
-        briefState('The brief isn’t set up yet', 'Try again');
-        return;
-      }
-      if (status === 429) {
-        briefState('Wait a minute before refreshing the brief.', 'Try again');
-        return;
-      }
-      if (error || !data?.body || !data.created_at) throw error || new Error('Invalid brief');
-      showBrief(data);
-    } catch (_) {
-      briefState('Couldn’t generate the brief', 'Try again');
-    } finally {
-      briefBusy = false;
-    }
-  }
-
+  briefState('Loading brief…', { busy: true });
   briefAction.addEventListener('click', () => {
-    if (briefMode === 'load') loadBrief();
-    else generateBrief();
+    if (circlesState === 'ready') refresh();
+    else loadCircles();
   });
 
-  function loadCard(data, body, read, render, onError) {
+  function loadCard(body, read, render, isCurrent, onError) {
     function attempt() {
       body.setAttribute('aria-busy', 'true');
       Promise.resolve().then(read).then(result => {
-        if (snapshot === data) render(result);
+        if (isCurrent()) render(result);
       }).catch(() => {
-        if (snapshot !== data) return;
+        if (!isCurrent()) return;
         onError?.();
         body.replaceChildren(failed('Couldn’t load', attempt));
       }).finally(() => {
-        if (snapshot === data) body.removeAttribute('aria-busy');
+        if (isCurrent()) body.removeAttribute('aria-busy');
       });
     }
     attempt();
+  }
+
+  function refreshTime(data, previous) {
+    snapshot = data;
+    const sameLoad = () => snapshot?.cache === data.cache;
+    const sameDay = () => sameLoad() && snapshot.today === data.today;
+    const sameShiftWindow = () => sameLoad() && snapshot.shiftWindow === data.shiftWindow;
+    const isCurrent = () => snapshot === data;
+    const loadAttention = () => loadNotificationAttention(data);
+    function renderAttentionResult(result) {
+      renderAttention(data, result.requests, result.rows);
+      showBrief(data, result);
+      if (result.incomplete) {
+        attentionCount.hidden = true;
+        if (attentionBody.textContent === 'All clear') attentionBody.replaceChildren();
+        attentionBody.appendChild(failed('Couldn’t load all items', () => {
+          if (snapshot) refreshTime(createSnapshot(snapshot.user, snapshot), snapshot);
+        }));
+      }
+    }
+    loadCard(attentionBody, loadAttention, renderAttentionResult, isCurrent, () => briefState('Couldn’t load today’s brief.'));
+    if (data.today !== previous?.today) {
+      loadCard(progressBody, () => Promise.all([medication(data), data.tasks(), data.shifts()]),
+        result => renderProgress(data, result), sameDay, () => {
+          setProgressMenu(false);
+          progressFilter.hidden = true;
+        });
+    }
+    if (data.shiftWindow !== previous?.shiftWindow) {
+      loadCard(byId('home-shifts-body'), data.nextShifts, shifts => renderShifts(data, shifts), sameShiftWindow);
+      loadCard(byId('circle-grid'), data.shifts, shifts => renderCirclesCard(data, shifts), sameShiftWindow);
+    }
   }
 
   function refresh() {
@@ -670,6 +638,7 @@
     if (circlesState !== 'ready') {
       snapshot = undefined;
       showNotificationError();
+      briefState('Couldn’t load today’s brief.');
       const retry = () => loadCircles();
       const bodies = [attentionBody, byId('home-progress-body'), byId('home-shifts-body'), byId('circle-grid'), activityBody];
       bodies.forEach(body => {
@@ -680,35 +649,22 @@
     }
 
     const data = createSnapshot(currentUser);
-    snapshot = data;
-    const loadAttention = () => loadNotificationAttention(data);
-    function renderAttentionResult(result) {
-      renderAttention(data, result.requests, result.rows);
-      if (result.incomplete) {
-        attentionCount.hidden = true;
-        if (attentionBody.textContent === 'All clear') attentionBody.replaceChildren();
-        attentionBody.appendChild(failed('Couldn’t load all items', () => {
-          loadCard(data, attentionBody, loadAttention, renderAttentionResult);
-        }));
-      }
-    }
-    loadCard(data, attentionBody, loadAttention, renderAttentionResult);
-    loadCard(data, progressBody, () => Promise.all([medication(data), data.tasks(), data.shifts()]),
-      result => renderProgress(data, result), () => {
-        setProgressMenu(false);
-        progressFilter.hidden = true;
-      });
-    loadCard(data, byId('home-shifts-body'), data.nextShifts, shifts => renderShifts(data, shifts));
-    loadCard(data, byId('circle-grid'), data.shifts, shifts => renderCirclesCard(data, shifts));
-    loadCard(data, activityBody, () => Promise.all([data.activity.notes(), data.activity.doses(), data.activity.tasks()]),
-      result => renderActivity(data, result), () => { activityMore.hidden = true; });
+    briefState('Loading brief…', { busy: true });
+    refreshTime(data);
+    loadCard(activityBody, () => Promise.all([data.activity.notes(), data.activity.doses(), data.activity.tasks()]),
+      result => renderActivity(data, result), () => snapshot?.cache === data.cache, () => { activityMore.hidden = true; });
   }
+
+  Time.onMinute(() => {
+    if (!snapshot || circlesState !== 'ready') return;
+    if (Math.floor(+Time.now() / 60000) === Math.floor(+snapshot.now / 60000)) return;
+    refreshTime(createSnapshot(snapshot.user, snapshot), snapshot);
+  }, { visibleOnly: true });
 
   window.addEventListener('kalin:circles', refresh);
   window.kalinReady.then(user => {
     if (!user) return;
     if (circlesState !== 'loading' && !snapshot) refresh();
-    loadBrief();
   });
 })();
 

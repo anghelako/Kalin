@@ -1,7 +1,7 @@
 /* Shared tasks on a single care-circle page. */
 (function () {
   const columns = 'id, title, due_date, is_done, created_by, created_at';
-  const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+  const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
   const dialog = document.getElementById('todo-dialog');
   const form = document.getElementById('todo-form');
   const titleInput = document.getElementById('todo-title');
@@ -75,13 +75,7 @@
     }
 
     function render() {
-      const lastDay = new Date();
-      if (selectedFilter === 'Week') lastDay.setDate(lastDay.getDate() + 7);
-      const cutoff = [
-        String(lastDay.getFullYear()).padStart(4, '0'),
-        String(lastDay.getMonth() + 1).padStart(2, '0'),
-        String(lastDay.getDate()).padStart(2, '0')
-      ].join('-');
+      const cutoff = KalinTime.addDays(KalinTime.manilaToday(), selectedFilter === 'Week' ? 7 : 0);
       const visible = selectedFilter === 'All'
         ? tasks
         : tasks.filter(task => task.due_date && task.due_date <= cutoff);
@@ -121,7 +115,7 @@
       const details = el('span');
       details.appendChild(el('strong', '', task.title));
       if (task.due_date) {
-        const due = el('time', 'muted', 'Due ' + dateFormat.format(new Date(task.due_date + 'T00:00:00')));
+        const due = el('time', 'muted', 'Due ' + dateFormat.format(new Date(task.due_date + 'T00:00:00Z')));
         due.dateTime = task.due_date;
         details.appendChild(due);
       }

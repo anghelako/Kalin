@@ -33,12 +33,12 @@ const PALETTE = [
 
 /* Calendar state */
 const state = {
-  weekStart: startOfWeek(new Date()),
+  weekStart: startOfWeek(parseYmd(KalinTime.manilaToday())),
   filter: 'all',
   circles: [],
   circleList: [],   // [{ id, name, owned }]
   shifts: [],
-  me: 'You',
+  me: 'Member',
   colors: new Map()
 };
 
@@ -46,45 +46,22 @@ const state = {
 const $ = (id) => document.getElementById(id);
 
 const fmt = (d, options) =>
-  d.toLocaleDateString('en-US', options);
-
-const esc = (s) =>
-  String(s).replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[c]));
+  d.toLocaleDateString('en-US', { ...options, timeZone: 'UTC' });
 
 /* =========================================================
    DATE FUNCTIONS
 ========================================================= */
 
 function startOfWeek(date) {
-  const d = new Date(date);
-
-  d.setHours(0, 0, 0, 0);
-
-  d.setDate(
-    d.getDate() - ((d.getDay() + 6) % 7)
-  );
-
-  return d;
+  return addDays(date, -((date.getUTCDay() + 6) % 7));
 }
 
 function addDays(date, amount) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + amount);
-  return d;
+  return parseYmd(KalinTime.addDays(ymd(date), amount));
 }
 
 function ymd(date) {
-  return (
-    date.getFullYear() + '-' +
-    String(date.getMonth() + 1).padStart(2, '0') + '-' +
-    String(date.getDate()).padStart(2, '0')
-  );
+  return date.toISOString().slice(0, 10);
 }
 
 function weekDates(start) {
@@ -116,18 +93,15 @@ function calSetStatus(text, isError) {
   }
 }
 
-/* Shows our own database messages (P0001 = a raise exception in SQL) and
-   keeps every other error generic. */
 function calFriendlyError(error, fallback) {
   if (error && isMissingTable(error)) {
     return 'The shift tables are not set up in Supabase yet. Run supabase/shifts_setup.sql first.';
   }
-  if (error && error.code === 'P0001' && error.message) return error.message;
-  return fallback;
+  return KalinRx.databaseMessage(error, fallback);
 }
 
 function calLoadError(error, fallback) {
-  const wrapped = new Error(error && error.message ? error.message : fallback);
+  const wrapped = new Error(fallback, { cause: error });
   wrapped.friendly = calFriendlyError(error, fallback);
   return wrapped;
 }
@@ -136,7 +110,7 @@ async function loadShifts(dates) {
   /* RLS returns only shifts of circles the user belongs to. */
   const { data, error } = await client
     .from('shifts')
-    .select('id, shift_date, slot, assigned_to, circle_id, circles(name), profiles:assigned_to(full_name)')
+    .select('id, shift_date, slot, assigned_to, assigned_name, circle_id, circles(name), profiles:assigned_to(full_name)')
     .gte('shift_date', ymd(dates[0]))
     .lte('shift_date', ymd(dates[dates.length - 1]))
     .order('shift_date', { ascending: true });
@@ -147,13 +121,13 @@ async function loadShifts(dates) {
 
   return data.map((row) => ({
     id: row.id,
-    date: row.shift_date,
+    shift_date: row.shift_date,
     slot: row.slot,
     circle: row.circles ? row.circles.name : 'Circle',
     circleId: row.circle_id,
-    person: row.assigned_to
-      ? ((row.profiles && row.profiles.full_name) || 'Member')
-      : '',
+    assigned_to: row.assigned_to,
+    assigned_name: row.assigned_name,
+    person: row.assigned_name?.trim() || row.profiles?.full_name?.trim(),
     mine: !!currentUser && row.assigned_to === currentUser.id,
     canManage: owned.has(row.circle_id)
   }));
@@ -191,6 +165,12 @@ async function loadCalendarCircles() {
 /* Volunteer (take = true) or release (take = false) */
 async function setShift(id, take) {
   if (shiftBusy) return;
+  const shift = state.shifts.find(row => row.id === id);
+  if (shift && KalinTime.hasStarted(shift)) {
+    calSetStatus(KalinRx.databaseMessage({ message: 'shift_started' }), true);
+    await load();
+    return;
+  }
   shiftBusy = true;
   calSetStatus('');
 
@@ -269,14 +249,18 @@ function calendarColorFor(circle) {
    FILTERS
 ========================================================= */
 
-function visible(shift) {
+function isOpen(shift, now) {
+  return !shift.assigned_to && !(shift.assigned_name && +now >= +KalinTime.shiftEnd(shift));
+}
+
+function visible(shift, now) {
   const filter = state.filter;
 
   if (filter === 'all') return true;
 
   if (filter === 'mine') return shift.mine;
 
-  if (filter === 'open') return !shift.person;
+  if (filter === 'open') return isOpen(shift, now);
 
   return filter === 'c:' + shift.circle;
 }
@@ -285,69 +269,55 @@ function visible(shift) {
    SHIFT CARDS
 ========================================================= */
 
-function cardHtml(shift) {
+function updateShiftButton(button, shift, now) {
+  const started = KalinTime.hasStarted(shift, now);
+  button.disabled = started;
+  if (started) {
+    button.title = 'This shift has already started.';
+    button.setAttribute('aria-label', button.textContent + ' unavailable. This shift has already started.');
+  } else {
+    button.removeAttribute('title');
+    button.removeAttribute('aria-label');
+  }
+}
+
+function shiftCard(shift, now) {
   const color = calendarColorFor(shift.circle);
+  const open = isOpen(shift, now);
+  const card = el('article', open ? 'shift open' : 'shift');
+  card.style.setProperty('--c', color.c);
+  card.style.setProperty('--c-bg', color.bg);
+  card.style.setProperty('--c-line', color.line);
 
-  const style =
-    `--c:${color.c};` +
-    `--c-bg:${color.bg};` +
-    `--c-line:${color.line}`;
-
-  const tag =
-    `<span class="sh-tag">${esc(shift.circle)}</span>`;
-
-  const del = shift.canManage
-    ? `<button type="button" class="sh-del" data-action="delete"
-         data-id="${esc(shift.id)}" aria-label="Delete shift" title="Delete shift">×</button>`
-    : '';
-
-  if (!shift.person) {
-    return `
-      <article class="shift open" style="${style}">
-        <div class="shift-top">${tag}${del}</div>
-        <div class="sh-who">Open slot</div>
-        <button
-          type="button"
-          class="shift-btn volunteer"
-          data-action="volunteer"
-          data-id="${esc(shift.id)}">
-          Volunteer
-        </button>
-      </article>
-    `;
+  const top = el('div', 'shift-top');
+  top.appendChild(el('span', 'sh-tag', shift.circle));
+  if (shift.mine) top.appendChild(el('span', 'sh-you', 'YOU'));
+  if (shift.canManage) {
+    const remove = el('button', 'sh-del', '×');
+    remove.type = 'button';
+    remove.dataset.action = 'delete';
+    remove.dataset.id = shift.id;
+    remove.title = 'Delete shift';
+    remove.setAttribute('aria-label', 'Delete shift');
+    top.appendChild(remove);
   }
 
-  if (shift.mine) {
-    return `
-      <article class="shift" style="${style}">
-        <div class="shift-top">
-          ${tag}
-          <span class="sh-you">YOU</span>
-          ${del}
-        </div>
+  let person = shift.person || 'Member';
+  if (open) person = 'Open slot';
+  if (shift.mine) person = 'You (' + (shift.person || state.me) + ')';
+  card.append(top, el('div', 'sh-who', person));
 
-        <div class="sh-who">
-          You (${esc(state.me)})
-        </div>
-
-        <button
-          type="button"
-          class="shift-btn"
-          data-action="release"
-          data-id="${esc(shift.id)}">
-          Release
-        </button>
-      </article>
-    `;
+  if (open || shift.mine) {
+    const button = el('button', open ? 'shift-btn volunteer' : 'shift-btn', open ? 'Volunteer' : 'Release');
+    button.type = 'button';
+    button.dataset.action = open ? 'volunteer' : 'release';
+    button.dataset.id = shift.id;
+    updateShiftButton(button, shift, now);
+    card.appendChild(button);
+  } else {
+    card.appendChild(el('div', 'sh-status', 'Covered'));
   }
-
-  return `
-    <article class="shift" style="${style}">
-      <div class="shift-top">${tag}${del}</div>
-      <div class="sh-who">${esc(shift.person)}</div>
-      <div class="sh-status">Covered</div>
-    </article>
-  `;
+  return card;
 }
 
 /* =========================================================
@@ -356,8 +326,8 @@ function cardHtml(shift) {
 
 function render() {
   const dates = weekDates(state.weekStart);
-
-  const todayKey = ymd(new Date());
+  const now = KalinTime.now();
+  const todayKey = KalinTime.manilaToday(now);
 
   /* Week label */
   $('week-label').textContent =
@@ -373,7 +343,7 @@ function render() {
     });
 
   /* Schedule-view button + dropdown */
-  renderView();
+  renderView(now);
 
   /* Calendar header */
   let html = `
@@ -400,6 +370,7 @@ function render() {
 
   /* Calendar rows */
   let shown = 0;
+  const shiftsByCell = [];
 
   for (const slot of SLOTS) {
     html += `
@@ -420,27 +391,28 @@ function render() {
     for (const date of dates) {
       const cards = state.shifts
         .filter((shift) =>
-          shift.date === ymd(date) &&
+          shift.shift_date === ymd(date) &&
           shift.slot === slot.key &&
-          visible(shift)
+          visible(shift, now)
         )
         .sort((a, b) =>
           a.circle.localeCompare(b.circle)
         );
 
       shown += cards.length;
+      shiftsByCell.push(cards);
 
-      html += `
-        <div class="wg-cell${ymd(date) === todayKey ? ' today' : ''}">
-          ${cards.map(cardHtml).join('')}
-        </div>
-      `;
+      html += `<div class="wg-cell${ymd(date) === todayKey ? ' today' : ''}"></div>`;
     }
 
     html += '</div>';
   }
 
-  $('week-grid').innerHTML = html;
+  const grid = $('week-grid');
+  grid.innerHTML = html;
+  grid.querySelectorAll('.wg-cell').forEach((cell, index) => {
+    cell.append(...shiftsByCell[index].map(shift => shiftCard(shift, now)));
+  });
 
   /* Empty calendar message */
   const note = $('cal-note');
@@ -479,26 +451,19 @@ function viewLabel() {
   return 'All circles';
 }
 
-function optionHtml(key, label, count, color) {
-  const selected = state.filter === key;
-
-  return `
-    <button
-      type="button"
-      class="opt"
-      role="radio"
-      aria-checked="${selected}"
-      data-view="${esc(key)}"
-      style="--c:${color}">
-      <span class="opt-dot"></span>
-      <span class="opt-name">${esc(label)}</span>
-      <span class="opt-count">${count}</span>
-      ${VIEW_ICON_CHECK}
-    </button>
-  `;
+function viewOption(key, label, count, color) {
+  const button = el('button', 'opt');
+  button.type = 'button';
+  button.setAttribute('role', 'radio');
+  button.setAttribute('aria-checked', String(state.filter === key));
+  button.dataset.view = key;
+  button.style.setProperty('--c', color);
+  button.append(el('span', 'opt-dot'), el('span', 'opt-name', label), el('span', 'opt-count', count));
+  button.insertAdjacentHTML('beforeend', VIEW_ICON_CHECK);
+  return button;
 }
 
-function renderView() {
+function renderView(now = KalinTime.now()) {
   const names = circleNames();
 
   const countFor = (name) =>
@@ -508,32 +473,30 @@ function renderView() {
   $('view-label').textContent = viewLabel();
 
   /* Circle options */
-  const circleOptions = names.length
-    ? names.map((name) =>
-        optionHtml('c:' + name, name, countFor(name), calendarColorFor(name).c)
-      ).join('')
-    : `<p class="drawer-empty">
-         You haven't joined any circles yet.
-         Circles you join will show up here.
-       </p>`;
-
-  $('drawer-list').innerHTML = `
+  const drawer = $('drawer-list');
+  drawer.innerHTML = `
     <section class="drawer-group">
       <h3>Circles</h3>
-      <div class="drawer-list" role="radiogroup" aria-label="Circles">
-        ${optionHtml('all', 'All circles', state.shifts.length, '#081224')}
-        ${circleOptions}
-      </div>
+      <div class="drawer-list" role="radiogroup" aria-label="Circles"></div>
     </section>
 
     <section class="drawer-group">
       <h3>Quick views</h3>
-      <div class="drawer-list" role="radiogroup" aria-label="Quick views">
-        ${optionHtml('mine', 'My shifts only', state.shifts.filter((s) => s.mine).length, '#0d9488')}
-        ${optionHtml('open', 'Open shifts only', state.shifts.filter((s) => !s.person).length, '#f59e0b')}
-      </div>
+      <div class="drawer-list" role="radiogroup" aria-label="Quick views"></div>
     </section>
   `;
+  const [circleGroup, quickGroup] = drawer.querySelectorAll('.drawer-list');
+  circleGroup.appendChild(viewOption('all', 'All circles', state.shifts.length, '#081224'));
+  if (names.length) {
+    circleGroup.append(...names.map(name => viewOption('c:' + name, name, countFor(name), calendarColorFor(name).c)));
+  } else {
+    circleGroup.appendChild(el('p', 'drawer-empty',
+      "You haven't joined any circles yet. Circles you join will show up here."));
+  }
+  quickGroup.append(
+    viewOption('mine', 'My shifts only', state.shifts.filter(shift => shift.mine).length, '#0d9488'),
+    viewOption('open', 'Open shifts only', state.shifts.filter(shift => isOpen(shift, now)).length, '#f59e0b')
+  );
 }
 
 function menuIsOpen() {
@@ -693,7 +656,7 @@ const thisWeekButton = $('this-week');
 
 if (thisWeekButton) {
   thisWeekButton.addEventListener('click', () => {
-    state.weekStart = startOfWeek(new Date());
+    state.weekStart = startOfWeek(parseYmd(KalinTime.manilaToday()));
 
     load();
   });
@@ -706,7 +669,7 @@ if (thisWeekButton) {
 $('week-grid').addEventListener('click', (event) => {
   const button = event.target.closest('[data-action]');
 
-  if (!button) return;
+  if (!button || button.disabled) return;
 
   const action = button.dataset.action;
 
@@ -718,6 +681,20 @@ $('week-grid').addEventListener('click', (event) => {
   setShift(button.dataset.id, action === 'volunteer');
 });
 
+KalinTime.onMinute(() => {
+  const now = KalinTime.now();
+  const shifts = new Map(state.shifts.map(shift => [shift.id, shift]));
+  for (const button of $('week-grid').querySelectorAll('.shift-btn')) {
+    const shift = shifts.get(button.dataset.id);
+    if (!shift) continue;
+    if (button.dataset.action === 'volunteer' && !isOpen(shift, now)) {
+      render();
+      return;
+    }
+    updateShiftButton(button, shift, now);
+  }
+});
+
 /* =========================================================
    CREATE SHIFT (circle owners only)
 ========================================================= */
@@ -727,8 +704,7 @@ const shiftForm = $('shift-form');
 const MAX_SHIFT_ROWS = 200;
 
 function parseYmd(value) {
-  const [y, m, d] = value.split('-').map(Number);
-  return new Date(y, m - 1, d);
+  return new Date(value + 'T00:00:00Z');
 }
 
 function shiftDatesFor(startValue, repeat, weeks) {
@@ -765,7 +741,7 @@ function openShiftDialog() {
     if (viewed) select.value = viewed.id;
   }
 
-  const today = ymd(new Date());
+  const today = KalinTime.manilaToday();
   $('shift-date').min = today;
   $('shift-date').value = today;
   $('shift-weeks-row').hidden = true;
@@ -798,7 +774,9 @@ shiftForm.addEventListener('submit', async (event) => {
 
   if (!circleId) { error.textContent = 'Choose a circle.'; return; }
   if (!dateValue) { error.textContent = 'Choose a date.'; return; }
-  if (dateValue < ymd(new Date())) { error.textContent = 'Pick today or a later date.'; return; }
+  const today = KalinTime.manilaToday();
+  $('shift-date').min = today;
+  if (dateValue < today) { error.textContent = 'Pick today or a later date.'; return; }
 
   const slots = slotValue === 'both' ? ['morning', 'evening'] : [slotValue];
   const rows = [];
@@ -830,6 +808,7 @@ shiftForm.addEventListener('submit', async (event) => {
   if (insertError) {
     console.error('Could not create shifts:', insertError);
     error.textContent = calFriendlyError(insertError, 'Could not create the shifts. Please try again.');
+    await load();
     return;
   }
 
@@ -855,14 +834,8 @@ window.kalinReady.then((user) => {
   if (user) {
     const metadata = user.user_metadata || {};
 
-    const fullName = (
-      metadata.full_name ||
-      metadata.name ||
-      (user.email || '').split('@')[0] ||
-      ''
-    ).trim();
-
-    state.me = fullName.split(/\s+/)[0] || 'You';
+    const fullName = metadata.full_name?.trim() || metadata.name?.trim() || 'Member';
+    state.me = fullName.split(/\s+/)[0];
   }
 
   load();

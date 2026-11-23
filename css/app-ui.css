@@ -907,7 +907,8 @@ body.app-v2 :is(.home-brief-icon, .home-person-icon, .home-next, .home-circle-fi
 
 body.app-v2 .home-brief-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 body.app-v2 .home-brief-heading h2 { font: 800 17px/1.2 var(--display); }
-body.app-v2 :is(#home-brief-updated, .home-brief-note) { color: #d5e2f4; font-size: 11.5px; }
+body.app-v2 #home-brief-updated { color: #d5e2f4; font-size: 11.5px; }
+body.app-v2 .home-brief-note { display: none; }
 body.app-v2 #home-brief-body { margin-block: 4px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
 body.app-v2 .home-brief-action { background: #fff; color: var(--navy-900); }
 body.app-v2 .home-brief-action:disabled { cursor: default; opacity: .78; }

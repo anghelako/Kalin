@@ -137,7 +137,7 @@ function friendly(error) {
   if (m.includes('rate limit')) {
     return 'Too many attempts. Wait a minute and try again.';
   }
-  return error.message || 'Something went wrong. Try again.';
+  return 'Something went wrong. Please try again.';
 }
 
 form.addEventListener('submit', async e => {

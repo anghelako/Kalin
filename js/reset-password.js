@@ -98,7 +98,7 @@ views.form.addEventListener('submit', async e => {
 
   if (error) {
     const same = (error.message || '').toLowerCase().includes('different from the old password');
-    showMsg(same ? 'Choose a password you haven’t used before.' : error.message, 'err');
+    showMsg(same ? 'Choose a password you haven’t used before.' : 'Something went wrong. Please try again.', 'err');
     btn.disabled = false;
     $('submit-text').textContent = 'Update password';
     return;

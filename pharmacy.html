@@ -200,7 +200,7 @@
         </div>
         <div id="item-stock-field">
           <label class="l" for="item-stock">Current stock</label>
-          <input id="item-stock" class="rx-control" type="number" min="0" step="0.25" inputmode="decimal" placeholder="e.g. 30">
+          <input id="item-stock" class="rx-control" type="number" min="0" max="99999999.99" step="0.01" inputmode="decimal" placeholder="e.g. 30">
         </div>
       </div>
       <p class="rx-hint" id="item-stock-note" hidden>To change the stock, use “Adjust stock”. That keeps a record of every change.</p>
@@ -208,7 +208,7 @@
       <div class="rx-row2">
         <div>
           <label class="l" for="item-threshold">Warn me at <span class="opt">(low stock)</span></label>
-          <input id="item-threshold" class="rx-control" type="number" min="0" step="0.25" inputmode="decimal" placeholder="e.g. 10">
+          <input id="item-threshold" class="rx-control" type="number" min="0" max="99999999.99" step="0.01" inputmode="decimal" placeholder="e.g. 10">
         </div>
         <div>
           <label class="l" for="item-expires">Expires <span class="opt">(optional)</span></label>
@@ -256,7 +256,7 @@
 
       <label class="l" for="stock-amount" id="stock-amount-label">How much to add</label>
       <div class="rx-amount">
-        <input id="stock-amount" class="rx-control" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0">
+        <input id="stock-amount" class="rx-control" type="number" min="0.01" max="99999999.99" step="0.01" inputmode="decimal" placeholder="0">
         <span id="stock-unit"></span>
       </div>
       <p class="rx-hint" id="stock-preview" aria-live="polite"></p>
@@ -311,6 +311,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
+<script src="js/kalin-time.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/shell.js"></script>
 <script src="js/pharmacy-core.js"></script>

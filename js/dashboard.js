@@ -12,8 +12,8 @@ async function signOut() {
 
 function showUser(user) {
   const meta = user.user_metadata || {};
-  const full = (meta.full_name || meta.name || (user.email || '').split('@')[0] || '').trim();
-  const first = full.split(/\s+/)[0] || 'there';
+  const full = meta.full_name?.trim() || meta.name?.trim() || 'Member';
+  const first = full.split(/\s+/)[0];
   const nameEl = document.getElementById('first-name');
   const initialEl = document.getElementById('avatar-initial');
   const profileName = document.querySelector('[data-profile-name]');
@@ -37,6 +37,7 @@ window.kalinReady = (async function bootstrapKalin() {
       if (data.session) {
         client = candidate;
         currentUser = data.session.user;
+        KalinTime.syncClock(client);
         showUser(currentUser);
         return currentUser;
       }
@@ -56,12 +57,21 @@ if (signOutButton) signOutButton.addEventListener('click', signOut);
 
 const today = document.getElementById('today-date');
 if (today) {
-  today.textContent = new Date().toLocaleDateString(undefined, {
+  const formatDate = new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
+    timeZone: KalinTime.zone
   });
+  function updateToday() {
+    const { date, start } = KalinTime.manilaMidnightRange();
+    if (today.dateTime === date) return;
+    today.dateTime = date;
+    today.textContent = formatDate.format(start);
+  }
+  updateToday();
+  KalinTime.onMinute(updateToday, { visibleOnly: true });
 }
 
 /* =====================================================================
@@ -394,7 +404,7 @@ function requestRow(request) {
 
     if (error) {
       console.error('Could not answer request:', error);
-      problem.textContent = error.message;
+      problem.textContent = KalinRx.databaseMessage(error, 'Couldn’t respond to this request. Try again.');
       problem.hidden = false;
       decline.disabled = false;
       approve.disabled = false;
@@ -631,7 +641,7 @@ if (circleDialog && circleForm) {
       console.error('Could not create circle:', error);
       return setCircleMessage(isMissingTable(error)
         ? 'The circles tables don’t exist in Supabase yet. Run the SQL setup first.'
-        : error.message);
+        : KalinRx.databaseMessage(error, 'Couldn’t create the circle. Try again.'));
     }
 
     circleDialog.close();
@@ -650,7 +660,7 @@ if (circleDialog && circleForm) {
       console.error('Could not send request:', error);
       return setCircleMessage(isMissingTable(error)
         ? 'Joining isn’t set up in Supabase yet. Run supabase/circles_join_setup.sql first.'
-        : error.message);
+        : KalinRx.databaseMessage(error, 'Couldn’t send the request. Try again.'));
     }
 
     const name = data.circle_name;

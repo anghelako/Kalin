@@ -70,10 +70,7 @@
   }
 
   function currentSlot(now) {
-    const hour = now.getHours();
-    if (hour >= 7 && hour < 15) return 'morning';
-    if (hour >= 15 && hour < 22) return 'evening';
-    return null;
+    return KalinTime.currentSlot(now);
   }
 
   async function refreshDuty() {
@@ -81,13 +78,13 @@
     if (!dutyLines.size) return;
     const user = await window.kalinReady;
     if (!user || load !== dutyLoad) return;
-    const now = new Date();
+    const now = KalinTime.now();
     const slot = currentSlot(now);
     let rows = [];
     try {
       if (slot) {
         const { data, error } = await client.from('shifts')
-          .select('circle_id, profiles:assigned_to(full_name)')
+          .select('circle_id, assigned_to, assigned_name, profiles:assigned_to(full_name)')
           .in('circle_id', [...dutyLines.keys()])
           .eq('shift_date', KalinRx.todayISO(now))
           .eq('slot', slot)
@@ -101,7 +98,7 @@
     }
     if (load !== dutyLoad) return;
     const names = new Map(rows.map(row => [
-      row.circle_id, row.profiles?.full_name?.trim().split(/\s+/)[0] || 'Member'
+      row.circle_id, (row.assigned_name || row.profiles?.full_name)?.trim().split(/\s+/)[0] || 'Member'
     ]));
     dutyLines.forEach(({ duty, dot, label }, circleId) => {
       const name = names.get(circleId);
@@ -151,6 +148,6 @@
   window.addEventListener('kalin:circles', render);
   render();
   window.kalinReady.then(user => {
-    if (user) setInterval(refreshDuty, 60000);
+    if (user) KalinTime.onMinute(refreshDuty);
   });
 })();

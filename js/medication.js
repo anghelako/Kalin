@@ -36,7 +36,7 @@
   function canUndo(dose) {
     if (owner) return true;
     if (!currentUser || dose.taken_by !== currentUser.id) return false;
-    return Date.now() - Date.parse(dose.taken_at) <= Rx.UNDO_MINUTES * 60000;
+    return KalinTime.now() - Date.parse(dose.taken_at) <= Rx.UNDO_MINUTES * 60000;
   }
 
   /* ---------- Loading ---------- */
@@ -47,9 +47,7 @@
       render();
     }
 
-    const today = Rx.todayISO();
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    const { date: today, start, end } = KalinTime.manilaMidnightRange();
 
     const [itemsRes, schedulesRes, dosesRes] = await Promise.all([
       client
@@ -67,7 +65,8 @@
         .select('id, schedule_id, item_id, amount, slot_date, slot_time, taken_by, taken_by_name, taken_at, flagged, stock_after')
         .eq('circle_id', circleId)
         .eq('status', 'taken')
-        .or('slot_date.eq.' + today + ',taken_at.gte.' + startOfDay.toISOString())
+        .or('slot_date.eq.' + today + ',and(taken_at.gte.' + start.toISOString() +
+          ',taken_at.lt.' + end.toISOString() + ')')
         .order('taken_at', { ascending: true })
     ]);
 
@@ -107,6 +106,7 @@
       console.error('Could not record dose:', error);
       say(Rx.friendly(error), true);
       button.disabled = false;
+      await load(true);
       return;
     }
 
@@ -131,6 +131,7 @@
       console.error('Could not undo dose:', error);
       say(Rx.friendly(error), true);
       button.disabled = false;
+      await load(true);
       return;
     }
 
@@ -318,8 +319,7 @@
       return;
     }
 
-    const now = new Date();
-    const today = Rx.todayISO(now);
+    const { date: today, minutes: nowMinutes } = KalinTime.manilaNow();
     if (loadedDay && loadedDay !== today) load(true); // a new day started: refresh
 
     const activeItems = items.filter(item => item.is_active);
@@ -337,7 +337,6 @@
     }
 
     const rows = buildRows(today);
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
     if (rows.length) {
       const taken = rows.filter(row => row.dose).length;
@@ -567,9 +566,9 @@
   }
 
   // Keep "Due now / Overdue" current, and pick up other people's changes
-  setInterval(() => {
+  KalinTime.onMinute(() => {
     if (state === 'ready' && document.body.contains(bodyEl)) render();
-  }, 60000);
+  });
 
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && state === 'ready' && circleId) load(true);

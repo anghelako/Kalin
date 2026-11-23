@@ -290,6 +290,14 @@
     document.getElementById('item-error').textContent = text;
   }
 
+  function stockValue(input, allowZero, blankIsZero = false) {
+    if (input.validity.badInput) return NaN;
+    if (input.value === '' && blankIsZero) return 0;
+    if (!/^(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(input.value)) return NaN;
+    const value = Number(input.value);
+    return value >= (allowZero ? 0 : 0.01) && value <= Number(input.max) ? value : NaN;
+  }
+
   function openItemDialog(item) {
     editing = item;
     itemForm.reset();
@@ -324,17 +332,15 @@
     const strength = document.getElementById('item-strength').value.trim();
     const form = document.getElementById('item-form-type').value;
     const unit = document.getElementById('item-unit').value;
-    const stockText = document.getElementById('item-stock').value;
-    const thresholdText = document.getElementById('item-threshold').value;
     const expires = document.getElementById('item-expires').value;
     const notes = document.getElementById('item-notes').value.trim();
 
-    const threshold = thresholdText === '' ? 0 : parseFloat(thresholdText);
-    const stock = stockText === '' ? 0 : parseFloat(stockText);
+    const threshold = stockValue(document.getElementById('item-threshold'), true, true);
+    const stock = stockValue(document.getElementById('item-stock'), true, true);
 
     if (!name) return itemError('Enter the medicine’s name.');
-    if (!(threshold >= 0)) return itemError('The low-stock level can’t be negative.');
-    if (!editing && !(stock >= 0)) return itemError('Stock can’t be negative.');
+    if (Number.isNaN(threshold)) return itemError(Rx.databaseMessage({ message: 'invalid_stock_threshold' }));
+    if (!editing && Number.isNaN(stock)) return itemError(Rx.databaseMessage({ message: 'invalid_stock_amount' }));
 
     const save = document.getElementById('item-save');
     const label = save.textContent;
@@ -356,7 +362,7 @@
         })
         .eq('id', editing.id)
         .select('id');
-      error = result.error || (result.data && result.data.length ? null : { message: 'Only the circle owner can do that.' });
+      error = result.error || (result.data?.length ? null : { code: '42501' });
     } else {
       const result = await client.rpc('create_pharmacy_item', {
         p_circle: circleId,
@@ -377,7 +383,8 @@
 
     if (error) {
       console.error('Could not save medicine:', error);
-      const duplicate = (error.code === '23505') || (error.message || '').includes('already in the pharmacy');
+      const duplicate = error.code === '23505';
+      if (editing && error.code === '42501') return itemError('Only the circle owner can do that.');
       return itemError(duplicate ? 'That medicine is already in the pharmacy.' : Rx.friendly(error));
     }
 
@@ -397,7 +404,8 @@
   }
 
   function previewStock() {
-    const amount = parseFloat(document.getElementById('stock-amount').value);
+    const input = document.getElementById('stock-amount');
+    const amount = stockValue(input, stockMode === 'set');
     const preview = document.getElementById('stock-preview');
     const current = Number(stockItem.stock);
 
@@ -406,13 +414,16 @@
       return;
     }
     const next = stockMode === 'add' ? current + amount : stockMode === 'remove' ? current - amount : amount;
-    preview.textContent = next < 0
+    preview.textContent = Math.round(next * 100) > Math.round(Number(input.max) * 100)
+      ? Rx.databaseMessage({ message: 'stock_limit_exceeded' })
+      : next < 0
       ? 'That’s more than the current stock.'
       : 'New stock: ' + Rx.quantity(next, stockItem.unit);
   }
 
   function setStockMode(mode) {
     stockMode = mode;
+    document.getElementById('stock-amount').min = mode === 'set' ? '0' : '0.01';
     ['add', 'remove', 'set'].forEach(m => {
       const tab = document.getElementById('stock-tab-' + m);
       tab.setAttribute('aria-selected', String(m === mode));
@@ -447,15 +458,19 @@
     e.preventDefault();
     stockError('');
 
-    const amount = parseFloat(document.getElementById('stock-amount').value);
+    const input = document.getElementById('stock-amount');
+    const amount = stockValue(input, stockMode === 'set');
     const note = document.getElementById('stock-note').value.trim();
     const reason = document.getElementById('stock-reason').value;
 
-    if (!(amount >= 0) || (stockMode !== 'set' && amount === 0)) {
-      return stockError(stockMode === 'set' ? 'Enter the correct count.' : 'Enter an amount greater than 0.');
+    if (Number.isNaN(amount)) {
+      return stockError(Rx.databaseMessage({ message: 'invalid_stock_amount' }));
     }
     if (stockMode === 'remove' && amount > Number(stockItem.stock)) {
       return stockError('You can’t remove more than the current stock.');
+    }
+    if (stockMode === 'add' && Math.round((Number(stockItem.stock) + amount) * 100) > Math.round(Number(input.max) * 100)) {
+      return stockError(Rx.databaseMessage({ message: 'stock_limit_exceeded' }));
     }
     if (stockMode === 'set' && !note) return stockError('Add a short note explaining the correction.');
 
