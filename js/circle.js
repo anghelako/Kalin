@@ -7,13 +7,6 @@
 
   let thisCircle = null; // { id, name, description, created_by, created_at, circle_members: [...] }
 
-  function formatDate(value) {
-    const d = new Date(value);
-    return isNaN(d) ? '' : d.toLocaleDateString(undefined, {
-      month: 'short', day: 'numeric', year: 'numeric', timeZone: Time.zone
-    });
-  }
-
   function isOwner() {
     return !!(currentUser && thisCircle && thisCircle.created_by === currentUser.id);
   }
@@ -41,75 +34,6 @@
     head.appendChild(text);
     section.appendChild(head);
     return { section, head };
-  }
-
-  function linkButton(label, href) {
-    const a = el('a', 'btn-ghost link-btn', label);
-    a.href = href;
-    return a;
-  }
-
-  function dutyCard() {
-    const { section } = card('On duty now', 'Who is looking after this person right now');
-    const row = el('div', 'duty-row');
-    const dot = el('span', 'duty-dot big');
-    const text = el('div');
-    text.append(el('strong', '', 'No one assigned'), el('p', 'muted', 'Shifts aren’t connected yet.'));
-    row.append(dot, text);
-    section.append(row, linkButton('Open calendar', 'calendar.html'));
-    return section;
-  }
-
-  function weekCard() {
-    const { section } = card('This week', 'Upcoming shifts for this circle');
-    section.appendChild(el('p', 'empty', 'No shifts scheduled yet.'));
-    section.appendChild(linkButton('Open calendar', 'calendar.html'));
-    return section;
-  }
-
-  function memberName(member) {
-    if (currentUser && member.user_id === currentUser.id) {
-      const meta = currentUser.user_metadata || {};
-      const full = meta.full_name?.trim() || meta.name?.trim() || 'Member';
-      return full + ' (you)';
-    }
-    // Other members' names need a profiles table; until then show a neutral label
-    return 'Member';
-  }
-
-  function memberRow(member) {
-    const li = el('li', 'member');
-    const name = memberName(member);
-
-    const avatar = el('span', 'member-avatar', name.charAt(0).toUpperCase());
-    avatar.style.background = colorFor({ id: member.user_id });
-
-    const info = el('div', 'member-info');
-    info.append(el('strong', '', name), el('span', 'muted', 'Joined ' + formatDate(member.joined_at)));
-
-    li.append(avatar, info);
-    if (member.role === 'owner') li.appendChild(el('span', 'tag-owner', 'Owner'));
-    return li;
-  }
-
-  function membersCard() {
-    const members = (thisCircle.circle_members || []).slice().sort((a, b) => {
-      if (a.role !== b.role) return a.role === 'owner' ? -1 : 1;
-      return new Date(a.joined_at) - new Date(b.joined_at);
-    });
-
-    const { section, head } = card('Members', members.length === 1 ? '1 person in this circle' : members.length + ' people in this circle');
-
-    const invite = el('button', 'btn-ghost small', 'Invite');
-    invite.type = 'button';
-    invite.disabled = true;
-    invite.title = 'Invites are not connected yet';
-    head.appendChild(invite);
-
-    const list = el('ul', 'member-list');
-    members.forEach(m => list.appendChild(memberRow(m)));
-    section.appendChild(list);
-    return section;
   }
 
   function settingsCard() {

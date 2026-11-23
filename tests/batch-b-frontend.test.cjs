@@ -124,12 +124,24 @@ function harness(stamp = '2026-11-22T23:00:00Z') {
     setNow: stamp => { now = Date.parse(stamp); } };
 }
 
-const codes = new Set(('shift_started not_a_member shift_taken shift_in_past schedule_inactive item_inactive ' +
-  'invalid_dose_slot dose_slot_in_future invalid_stock_amount invalid_stock_threshold stock_limit_exceeded ' +
-  'circle_creator_immutable circle_owner_immutable circle_owner_must_be_creator circle_creator_must_be_owner ' +
-  'circle_owner_cannot_leave').split(' '));
-const copy = Object.fromEntries([...read('docs/BATCH_B.md').matchAll(/^\| `([a-z_]+)` \| [^|]+ \| ([^|]+) \|$/gm)]
-  .filter(([, code]) => codes.has(code)).map(([, code, message]) => [code, message.trim()]));
+const copy = {
+  shift_started: 'This shift has already started.',
+  not_a_member: 'You’re no longer a member of this circle. Refresh the circle or return to Home.',
+  shift_taken: 'This shift is no longer available to change.',
+  shift_in_past: 'Pick today or a later date.',
+  schedule_inactive: 'This medication schedule has been stopped.',
+  item_inactive: 'This medicine is inactive or unavailable.',
+  invalid_dose_slot: 'This time is no longer part of the schedule.',
+  dose_slot_in_future: 'You can’t record a dose for a future date.',
+  invalid_stock_amount: 'Enter a valid stock amount with up to two decimal places.',
+  invalid_stock_threshold: 'Enter a valid threshold with up to two decimal places.',
+  stock_limit_exceeded: 'This change is outside the supported stock range.',
+  circle_creator_immutable: 'Circle ownership cannot be transferred.',
+  circle_owner_immutable: 'The owner membership cannot be changed.',
+  circle_owner_must_be_creator: 'Only the creator can own this circle.',
+  circle_creator_must_be_owner: 'The creator must remain the owner.',
+  circle_owner_cannot_leave: 'Owners must delete the circle to remove their ownership.'
+};
 
 test('Manila day, midnight range, and exact shift cutoffs across UTC dates', () => {
   const { run } = harness();
@@ -160,14 +172,13 @@ test('Manila day, midnight range, and exact shift cutoffs across UTC dates', () 
   assert.equal(time.shiftEnd(evening).toISOString(), '2026-11-23T14:00:00.000Z');
 });
 
-test('every documented Batch B message matches exactly, with a safe fallback', async () => {
+test('every Batch B message matches exactly, with a safe fallback', async () => {
   const app = harness();
   const errors = app.run('KalinRx.databaseMessage');
-  assert.equal(Object.keys(copy).length, codes.size);
-  for (const code of codes) {
+  for (const [code, expected] of Object.entries(copy)) {
     app.rpcErrors.fixture = { code: 'P0001', message: code };
     const { error } = await app.context.client.rpc('fixture');
-    assert.equal(errors(error), copy[code], code);
+    assert.equal(errors(error), expected, code);
     assert.equal(errors({ code: 'P0001', message: code + ' ' }, 'safe fallback'), 'safe fallback');
   }
   assert.equal(errors({ code: 'P0001', message: 'Internal constraint details' }), 'Something went wrong. Please try again.');

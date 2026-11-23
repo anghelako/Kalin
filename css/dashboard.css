@@ -117,28 +117,10 @@ body.app {
   border-top: 1px solid rgba(255, 255, 255, .12);
 }
 
-.nav-toggle {
-  & .chev {
-    margin-left: auto;
-    width: 16px;
-    height: 16px;
-    transition: transform .2s;
-  }
-}
-
-.nav-group.collapsed .chev {
-  transform: rotate(-90deg);
-}
-
 .circle-drawer {
   display: grid;
   grid-template-rows: 1fr;
   transition: grid-template-rows .22s ease, visibility .22s;
-}
-
-.nav-group.collapsed .circle-drawer {
-  grid-template-rows: 0fr;
-  visibility: hidden;
 }
 
 .circle-list {
@@ -154,10 +136,6 @@ body.app {
 .circle-link.active {
   background: rgba(255, 255, 255, .1);
   color: #fff;
-}
-
-.nav-group.animating .circle-list {
-  overflow: hidden;
 }
 
 .circle-link {
@@ -418,16 +396,6 @@ body.app {
   }
 }
 
-.circle-badge {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  color: var(--navy-950);
-  font: 800 18px var(--display);
-}
-
 .circle-desc {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -680,8 +648,7 @@ body.app {
     width: 100%;
   }
 
-  .circle-drawer,
-  .nav-toggle .chev {
+  .circle-drawer {
     display: none;
   }
 
@@ -729,8 +696,7 @@ body.app {
   .btn-create,
   .circle-link,
   .circle-card,
-  .circle-drawer,
-  .nav-toggle .chev {
+  .circle-drawer {
     transition: none;
   }
 

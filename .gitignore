@@ -10,3 +10,4 @@ supabase/.branches/
 .env*
 *.dump
 *.sql.bak
+/KALIN_ARCHIVE_*/
