@@ -234,9 +234,7 @@
 }
 
 .slot-meds .rx-doses {
-  max-height: 640px;
   padding-right: 2px;
-  overflow-y: auto;
 }
 
 /* ---------- Dialog controls ---------- */

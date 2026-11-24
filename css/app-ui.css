@@ -501,6 +501,11 @@ body.app .circle-slots {
 }
 
 body.app .circle-slots > .slot { grid-area: var(--app-slot); min-width: 0; }
+body.app #circle-root .circle-slots > .slot {
+  overflow: visible;
+  overflow-x: visible;
+  overflow-y: visible;
+}
 body.app .slot-meds { --app-slot: medicine; }
 body.app .slot-todo { --app-slot: tasks; }
 body.app .slot-board { --app-slot: shifts; }
@@ -723,7 +728,10 @@ body.app #circle-root :is(.hero-open-shifts, .board-more) {
 body.app #circle-root .hero-open-shifts { color: #edf4ff; }
 body.app #circle-root .board-more { margin-top: 4px; color: var(--navy-900); }
 body.app #circle-root #open-shifts { scroll-margin-block: var(--app-space); }
-body.app #circle-root .board-list { max-height: none; overflow: visible; }
+body.app #circle-root :is(.board-list, .rx-doses, .ai-entries, .todo-list) {
+  max-height: none;
+  overflow: visible;
+}
 
 body.app #circle-root :is(.slot-meds, .slot-todo, .slot-ai):has(.empty) { align-self: start; }
 body.app #circle-root :is(.slot-meds, .slot-todo, .slot-ai) .empty {
