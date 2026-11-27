@@ -123,8 +123,10 @@
         row => row.eq('is_active', true)),
       doses: () => query('doses', 'medication_doses', 'id,circle_id,schedule_id,slot_date,slot_time',
         row => row.eq('status', 'taken').eq('slot_date', today), { scope: today }),
-      tasks: () => query('tasks', 'circle_tasks', 'id,circle_id,title,due_date,is_done',
+      tasks: () => query('tasks', 'circle_tasks', 'id,circle_id,title,due_date,is_done,frequency,days_of_week,interval_days,times,end_date',
         row => row.lte('due_date', today), { scope: today }),
+      taskSlots: () => query('taskSlots', 'circle_task_completions', 'id,circle_id,task_id,slot_time',
+        row => row.eq('slot_date', today), { scope: today }),
       shifts: () => query('shifts', 'shifts', 'id,circle_id,shift_date,slot,assigned_to,assigned_name,profiles:assigned_to(full_name)',
         row => row.gte('shift_date', today).lte('shift_date', weekEnd), { scope: today }),
       nextShifts: () => query('nextShifts', 'shifts', 'id,circle_id,shift_date,slot,assigned_to,assigned_name',
@@ -178,7 +180,7 @@
       if (minutesPast >= 60) overdueDoses.push(dose);
       else if (minutesPast >= 0) dueDoses.push(dose);
     }
-    const overdueTasks = tasks.filter(task => !task.is_done && task.due_date && task.due_date < data.today)
+    const overdueTasks = tasks.filter(task => (task.frequency || 'once') === 'once' && !task.is_done && task.due_date && task.due_date < data.today)
       .sort((a, b) => a.due_date.localeCompare(b.due_date));
     const stock = items.filter(item => item.is_active).flatMap(item => {
       const inventory = Rx.stockState(item);
@@ -499,19 +501,24 @@
     return result;
   }
 
-  function renderProgress(data, [{ doses }, tasks, shifts]) {
+  function renderProgress(data, [{ doses }, tasks, shifts, slotRows]) {
+    const doneKeys = new Set(slotRows.map(row => Rx.taskSlotKey(row.task_id, data.today, row.slot_time)));
     if (!data.membership.has(selectedCircle)) selectedCircle = '';
     const choices = [['', 'All circles'], ...[...data.membership.values()].map(circle => [circle.id, circle.name])];
     const matches = id => !selectedCircle || id === selectedCircle;
 
     function paintRings() {
       const selectedDoses = doses.filter(dose => matches(dose.circleId));
-      const selectedTasks = tasks.filter(task => matches(task.circle_id) && task.due_date === data.today);
+      const selectedTasks = tasks.filter(task => matches(task.circle_id) && Rx.taskDueOn(task, data.today));
+      const taskTotals = selectedTasks.reduce((sum, task) => {
+        const progress = Rx.taskProgress(task, data.today, doneKeys);
+        return { done: sum.done + progress.done, total: sum.total + progress.total };
+      }, { done: 0, total: 0 });
       const selectedShifts = shifts.filter(shift => matches(shift.circle_id));
       const rings = el('div', 'home-rings');
       rings.append(
         ring('Doses', 'taken', selectedDoses.filter(dose => dose.taken).length, selectedDoses.length),
-        ring('Tasks', 'done', selectedTasks.filter(task => task.is_done).length, selectedTasks.length),
+        ring('Tasks', 'done', taskTotals.done, taskTotals.total),
         ring('Shifts', 'covered', selectedShifts.filter(shift => shift.assigned_to).length, selectedShifts.length)
       );
       progressBody.replaceChildren(rings);
@@ -621,7 +628,7 @@
     }
     loadCard(attentionBody, loadAttention, renderAttentionResult, isCurrent, () => briefState('Couldn’t load today’s brief.'));
     if (data.today !== previous?.today) {
-      loadCard(progressBody, () => Promise.all([medication(data), data.tasks(), data.shifts()]),
+      loadCard(progressBody, () => Promise.all([medication(data), data.tasks(), data.shifts(), data.taskSlots().catch(() => [])]),
         result => renderProgress(data, result), sameDay, () => {
           setProgressMenu(false);
           progressFilter.hidden = true;

@@ -107,6 +107,37 @@ const KalinRx = (() => {
     return false;
   }
 
+  /* Tasks: is this task due on that day? A one-off task is due on its date; a repeating one follows
+     the same rules as a medication schedule (starts on due_date, optional end_date). */
+  function taskDueOn(task, iso) {
+    const frequency = task.frequency || 'once';
+    if (!task.due_date) return false;
+    if (frequency === 'once') return task.due_date === iso;
+    if (iso < task.due_date) return false;
+    if (task.end_date && iso > task.end_date) return false;
+    if (frequency === 'daily') return true;
+    if (frequency === 'weekly') return (task.days_of_week || []).includes(weekday(iso));
+    if (frequency === 'interval') {
+      return (dayNumber(iso) - dayNumber(task.due_date)) % task.interval_days === 0;
+    }
+    return false;
+  }
+
+  /* Repeating tasks are ticked off per time of day (rows in circle_task_completions); a one-off task
+     uses is_done. doneKeys is a Set of taskSlotKey() values for the day being looked at. */
+  const taskSlotKey = (taskId, iso, time) => taskId + '|' + iso + '|' + time.slice(0, 5);
+
+  function taskSlots(task) {
+    if ((task.frequency || 'once') === 'once') return [];
+    return task.times?.length ? task.times.map(time => time.slice(0, 5)) : ['00:00'];
+  }
+
+  function taskProgress(task, iso, doneKeys) {
+    if ((task.frequency || 'once') === 'once') return { done: task.is_done ? 1 : 0, total: 1 };
+    const slots = taskSlots(task);
+    return { done: slots.filter(time => doneKeys.has(taskSlotKey(task.id, iso, time))).length, total: slots.length };
+  }
+
   function frequencyText(schedule) {
     if (schedule.frequency === 'daily') return 'Every day';
     if (schedule.frequency === 'weekly') {
@@ -216,7 +247,7 @@ const KalinRx = (() => {
     FORMS, UNITS, DAY_NAMES, UNDO_MINUTES, SETUP_MESSAGE,
     number, unitWord, quantity, medicineName, formLabel,
     todayISO, dayNumber, weekday, formatDay, formatTime, formatStamp, formatClock,
-    minutesOf, sameTime, dueOn, frequencyText,
+    minutesOf, sameTime, dueOn, taskDueOn, taskSlotKey, taskSlots, taskProgress, frequencyText,
     stockState, expiryState, chip, statusChips,
     isMissing, friendly, databaseMessage, possessive
   };

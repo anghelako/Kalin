@@ -237,9 +237,17 @@
   padding-right: 2px;
 }
 
+/* ---------- Repeating tasks ---------- */
+
+.todo-label span.muted { display: block; margin-top: 3px; }
+.todo-label.todo-repeat { flex-direction: column; align-items: flex-start; cursor: default; }
+.todo-slots { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+.todo-slot { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; font-size: 13px; cursor: pointer; }
+
 /* ---------- Dialog controls ---------- */
 
 #med-dialog,
+#todo-dialog,
 #item-dialog,
 #stock-dialog,
 #history-dialog {
