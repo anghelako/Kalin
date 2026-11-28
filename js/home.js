@@ -3,10 +3,6 @@
   const Rx = KalinRx;
   const Time = KalinTime;
   const byId = id => document.getElementById(id);
-  const slots = {
-    morning: { name: 'Morning', hours: '7:00–15:00' },
-    evening: { name: 'Evening', hours: '15:00–22:00' }
-  };
   const dayLabel = new Intl.DateTimeFormat(undefined, {
     weekday: 'short', month: 'short', day: 'numeric', timeZone: Time.zone
   });
@@ -78,15 +74,15 @@
   const shiftStart = Time.shiftStart;
 
   function orderedShifts(rows) {
-    return rows.filter(row => slots[row.slot]).slice().sort((a, b) => shiftStart(a) - shiftStart(b));
+    return rows.filter(row => row.starts_at && row.ends_at).slice().sort((a, b) => shiftStart(a) - shiftStart(b));
   }
 
   function createSnapshot(user, previous) {
     const now = Time.now();
     const today = Time.manilaToday(now);
     const weekEnd = Time.addDays(today, 6);
-    const upcomingSlots = Object.keys(slots).filter(slot => !Time.hasStarted({ shift_date: today, slot }, now));
-    const shiftWindow = [today, Time.currentSlot(now), ...upcomingSlots].join('|');
+    // Shifts start and end at any minute, so the shift cards are re-rendered every minute (from cached rows).
+    const shiftWindow = today + '|' + Time.manilaNow(now).time.slice(0, 5);
     const membership = previous?.membership ?? new Map(circles.map(circle => [circle.id, circle]));
     const ids = [...membership.keys()];
     const owners = [...membership.values()].filter(circle => circle.role === 'owner').map(circle => circle.id);
@@ -127,16 +123,13 @@
         row => row.lte('due_date', today), { scope: today }),
       taskSlots: () => query('taskSlots', 'circle_task_completions', 'id,circle_id,task_id,slot_time',
         row => row.eq('slot_date', today), { scope: today }),
-      shifts: () => query('shifts', 'shifts', 'id,circle_id,shift_date,slot,assigned_to,assigned_name,profiles:assigned_to(full_name)',
-        row => row.gte('shift_date', today).lte('shift_date', weekEnd), { scope: today }),
-      nextShifts: () => query('nextShifts', 'shifts', 'id,circle_id,shift_date,slot,assigned_to,assigned_name',
-        row => {
-          const mine = row.eq('assigned_to', user.id).order('shift_date').order('slot', { ascending: false });
-          return upcomingSlots.length
-            ? mine.or('shift_date.gt.' + today + ',and(shift_date.eq.' + today + ',slot.in.(' + upcomingSlots.join(',') + '))')
-            : mine.gt('shift_date', today);
-        },
-        { limit: 3, scope: [today, ...upcomingSlots].join('|') }),
+      shifts: () => query('shifts', 'shifts', 'id,circle_id,shift_date,starts_at,ends_at,assigned_to,assigned_name,profiles:assigned_to(full_name)',
+        // from yesterday, so a night shift that is still running shows as on duty
+        row => row.gte('shift_date', Time.addDays(today, -1)).lte('shift_date', weekEnd), { scope: today }),
+      // Started shifts are filtered out when rendering, so ask for a few extra rows.
+      nextShifts: () => query('nextShifts', 'shifts', 'id,circle_id,shift_date,starts_at,ends_at,assigned_to,assigned_name',
+        row => row.eq('assigned_to', user.id).gte('shift_date', today).order('shift_date').order('starts_at'),
+        { limit: 12, scope: today }),
       requests: () => query('requests', 'circle_join_requests',
         'id,circle_id,user_id,circle_name,requester_name,requester_email,created_at',
         row => row.eq('status', 'pending').neq('user_id', user.id).order('created_at'), { circleIds: owners }),
@@ -223,7 +216,7 @@
       ...flags.stock.map(({ item, label }) =>
         entry(item.circle_id, item.name, label, 'due', '!', label, 'pharmacy.html')),
       ...flags.openShifts.map(shift =>
-        entry(shift.circle_id, dayLabel.format(shiftStart(shift)) + ' · ' + slots[shift.slot].name,
+        entry(shift.circle_id, dayLabel.format(shiftStart(shift)) + ' · ' + Time.shiftRange(shift),
           'Open shift', 'open', '◇', 'Open shift'))
     ];
   }
@@ -371,12 +364,11 @@
 
   function renderShifts(data, shifts) {
     const body = byId('home-shifts-body');
-    body.replaceChildren(...orderedShifts(shifts).filter(shift => !Time.hasStarted(shift, data.now)).map(shift => {
+    body.replaceChildren(...orderedShifts(shifts).filter(shift => !Time.hasStarted(shift, data.now)).slice(0, 3).map(shift => {
       const circle = data.membership.get(shift.circle_id);
-      const slot = slots[shift.slot];
       const row = el('div', 'home-shift-row');
-      row.append(dot(circle), rowText(dayLabel.format(shiftStart(shift)) + ' · ' + slot.name,
-        slot.hours + ' · ' + circle.name));
+      row.append(dot(circle), rowText(dayLabel.format(shiftStart(shift)) + ' · ' + Time.shiftPeriod(shift),
+        Time.shiftRange(shift) + ' · ' + circle.name));
       return row;
     }));
     if (!body.childElementCount) body.appendChild(empty('No upcoming shifts'));
@@ -391,8 +383,7 @@
 
   function renderCirclesCard(data, shifts) {
     const grid = byId('circle-grid');
-    const activeSlot = Time.currentSlot(data.now);
-    const duty = new Map(shifts.filter(shift => shift.shift_date === data.today && shift.slot === activeSlot && shift.assigned_to)
+    const duty = new Map(shifts.filter(shift => Time.isOnDuty(shift, data.now) && shift.assigned_to)
       .map(shift => [shift.circle_id, onDutyName(data, shift)]));
     const rows = [...data.membership.values()].slice(0, 3).map(circle => {
       const row = el('div', 'home-circle-row');
@@ -514,7 +505,7 @@
         const progress = Rx.taskProgress(task, data.today, doneKeys);
         return { done: sum.done + progress.done, total: sum.total + progress.total };
       }, { done: 0, total: 0 });
-      const selectedShifts = shifts.filter(shift => matches(shift.circle_id));
+      const selectedShifts = shifts.filter(shift => matches(shift.circle_id) && shift.shift_date >= data.today);
       const rings = el('div', 'home-rings');
       rings.append(
         ring('Doses', 'taken', selectedDoses.filter(dose => dose.taken).length, selectedDoses.length),

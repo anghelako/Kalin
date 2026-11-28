@@ -228,3 +228,15 @@
 .sh-tag {
   flex-shrink: 0;
 }
+/* ---------- Create shift: start and end times ---------- */
+
+.shift-times { display: grid; gap: 8px; margin-bottom: 8px; }
+
+.shift-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shift-time-row .dlg-input { flex: 1 1 0; min-width: 0; margin: 0; }
+.shift-time-to { flex: none; color: var(--muted); font-size: 13px; }

@@ -1,5 +1,6 @@
 -- Tasks get the same scheduling fields as medication schedules.
 -- due_date stays and now means "Starts", so Home's due/overdue logic keeps working.
+-- Safe to run more than once.
 ALTER TABLE public.circle_tasks
   ADD COLUMN IF NOT EXISTS frequency text NOT NULL DEFAULT 'once',
   ADD COLUMN IF NOT EXISTS days_of_week smallint[] NOT NULL DEFAULT '{}',
@@ -7,6 +8,14 @@ ALTER TABLE public.circle_tasks
   ADD COLUMN IF NOT EXISTS times time without time zone[] NOT NULL DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS end_date date,
   ADD COLUMN IF NOT EXISTS instructions text;
+
+ALTER TABLE public.circle_tasks
+  DROP CONSTRAINT IF EXISTS circle_tasks_frequency_check,
+  DROP CONSTRAINT IF EXISTS circle_tasks_times_check,
+  DROP CONSTRAINT IF EXISTS circle_tasks_weekly_check,
+  DROP CONSTRAINT IF EXISTS circle_tasks_interval_check,
+  DROP CONSTRAINT IF EXISTS circle_tasks_end_date_check,
+  DROP CONSTRAINT IF EXISTS circle_tasks_instructions_check;
 
 ALTER TABLE public.circle_tasks
   ADD CONSTRAINT circle_tasks_frequency_check CHECK (frequency = ANY (ARRAY['once','daily','weekly','interval'])),

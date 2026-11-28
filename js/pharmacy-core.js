@@ -197,6 +197,7 @@ const KalinRx = (() => {
     ['not_a_member', 'You’re no longer a member of this circle. Refresh the circle or return to Home.'],
     ['shift_taken', 'This shift is no longer available to change.'],
     ['shift_in_past', 'Pick today or a later date.'],
+    ['shift_overlap', 'That overlaps another shift in this circle. Pick a different time.'],
     ['schedule_inactive', 'This medication schedule has been stopped.'],
     ['item_inactive', 'This medicine is inactive or unavailable.'],
     ['invalid_dose_slot', 'This time is no longer part of the schedule.'],

@@ -524,10 +524,6 @@
 
   /* ---------- Shifts: who's on duty + volunteering board ---------- */
 
-  const SLOT_INFO = {
-    morning: { name: 'Morning shift', time: '7:00 AM – 3:00 PM', order: 0 },
-    evening: { name: 'Evening shift', time: '3:00 PM – 10:00 PM', order: 1 }
-  };
   const BOARD_DAYS = 14;
   const BOARD_PREVIEW_LIMIT = 3;
 
@@ -545,10 +541,6 @@
     return Time.manilaToday(date);
   }
 
-  function currentSlot(now) {
-    return Time.currentSlot(now);
-  }
-
   function nameOf(row) {
     const name = row.assigned_name?.trim() || row.profiles?.full_name?.trim();
     if (row.assigned_to && currentUser && row.assigned_to === currentUser.id) {
@@ -559,41 +551,38 @@
     return name || 'Member';
   }
 
-  function setDuty(name, slot, now) {
+  function setDuty(name, shift, now) {
     if (!dutyText || !dutyDot) return;
     dutyText.textContent = name || 'No one assigned';
     dutyDot.classList.toggle('on', !!name);
-    const shift = name && Time.slots[slot];
-    dutyProgress.hidden = !shift;
-    dutyHours.hidden = !shift;
+    const active = name && shift;
+    dutyProgress.hidden = !active;
+    dutyHours.hidden = !active;
     dutyOpenShifts.hidden = !!name;
-    if (shift) {
-      dutyProgress.max = (shift.to - shift.from) * 60;
-      dutyProgress.value = Time.manilaNow(now).minutes - shift.from * 60;
-      dutyHours.textContent = SLOT_INFO[slot].time;
+    if (active) {
+      dutyProgress.max = Math.round((+Time.shiftEnd(shift) - +Time.shiftStart(shift)) / 60000);
+      dutyProgress.value = Math.floor((+now - +Time.shiftStart(shift)) / 60000);
+      dutyHours.textContent = Time.shiftRange(shift);
     }
   }
 
   async function loadDuty() {
     if (!thisCircle) return;
     const now = Time.now();
-    const slot = currentSlot(now);
-    if (!slot) { setDuty(null); return; }
-
     const { data, error } = await client
       .from('shifts')
-      .select('assigned_to, assigned_name, profiles:assigned_to(full_name)')
+      .select('shift_date, starts_at, ends_at, assigned_to, assigned_name, profiles:assigned_to(full_name)')
       .eq('circle_id', thisCircle.id)
-      .eq('shift_date', localYmd(now))
-      .eq('slot', slot)
-      .not('assigned_to', 'is', null)
-      .limit(1);
+      .gte('shift_date', Time.addDays(localYmd(now), -1)) // a night shift can have started yesterday
+      .lte('shift_date', localYmd(now))
+      .not('assigned_to', 'is', null);
 
     if (error) {
       console.error('Could not load who is on duty:', error);
       return; // keep whatever is shown rather than claiming no one is on duty
     }
-    setDuty(data && data.length ? nameOf(data[0]) : null, slot, now);
+    const active = data.find(row => Time.isOnDuty(row, now));
+    setDuty(active ? nameOf(active) : null, active, now);
   }
 
   function boardStatus(text, isError) {
@@ -672,13 +661,12 @@
 
     const list = el('ul', 'board-list');
     rows.slice(0, BOARD_PREVIEW_LIMIT).forEach(row => {
-      const info = SLOT_INFO[row.slot];
       const item = el('li', 'board-item');
 
       const text = el('div', 'board-text');
       text.append(
         el('strong', '', boardDayLabel(row.shift_date)),
-        el('span', 'muted', info.name + ' · ' + info.time)
+        el('span', 'muted', Time.shiftPeriod(row) + ' shift · ' + Time.shiftRange(row))
       );
 
       const button = el('button', 'btn-solid small', 'Volunteer');
@@ -706,7 +694,7 @@
 
     const { data, error } = await client
       .from('shifts')
-      .select('id, shift_date, slot, assigned_to, assigned_name')
+      .select('id, shift_date, starts_at, ends_at, assigned_to, assigned_name')
       .eq('circle_id', thisCircle.id)
       .is('assigned_to', null)
       .gte('shift_date', start)
@@ -722,7 +710,7 @@
     } else {
       boardRows = data.slice().sort((a, b) =>
         a.shift_date === b.shift_date
-          ? SLOT_INFO[a.slot].order - SLOT_INFO[b.slot].order
+          ? a.starts_at.localeCompare(b.starts_at)
           : (a.shift_date < b.shift_date ? -1 : 1)
       );
       boardState = 'ready';

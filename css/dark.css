@@ -1,0 +1,248 @@
+/* =========================================================
+   KALIN DARK THEME
+   Applied when <html data-theme="dark"> (see js/theme.js).
+   Load this AFTER every other stylesheet: every rule here
+   uses the same selector as the light rule it replaces,
+   prefixed with html[data-theme="dark"], so it always wins.
+========================================================= */
+
+/* ---------- Tokens ---------- */
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #e6ebf5;
+  --muted: #9aa7bd;
+  --line: #2a3650;
+  --field: #1a2438;
+  --teal: #2dd4bf;
+  --danger: #f97066;
+  /* --navy-900 is mostly used as text and as the fill of primary buttons, so it becomes the light accent.
+     Dark panels (hero, dialog headers) are set explicitly below. */
+  --navy-900: #e6ebf5;
+  --navy-800: #cbd6ec;
+  --app-bg: #0b1120;
+  --app-soft: #1d2840;
+  --home-divider: #243049;
+  --app-focus: #8db4ff;
+}
+
+html[data-theme="dark"] body {
+  background: #0b1120;
+  color: var(--ink);
+}
+
+html[data-theme="dark"] body.app:has(> .app-header) {
+  box-shadow: 0 0 0 100vmax #0b1120;
+}
+
+/* ---------- Surfaces and text (generated from the light stylesheets) ---------- */
+
+/* ---- dashboard.css surfaces ---- */
+html[data-theme="dark"] body.app { background: #0b1120; }
+html[data-theme="dark"] .icon-btn { background: #141c2e; }
+html[data-theme="dark"] .icon-btn .dot { border: 2px solid #141c2e; }
+html[data-theme="dark"] .widget { background: #141c2e; }
+html[data-theme="dark"] .widget-count { color: #b3bfd4; }
+html[data-theme="dark"] .circle-card { background: #141c2e; }
+html[data-theme="dark"] .circle-card:hover { border-color: #3b4a69; }
+html[data-theme="dark"] .circle-card.add { color: #b3bfd4; }
+html[data-theme="dark"] #circle-dialog,
+html[data-theme="dark"] #edit-dialog,
+html[data-theme="dark"] #brief-dialog,
+html[data-theme="dark"] #note-dialog,
+html[data-theme="dark"] #todo-dialog,
+html[data-theme="dark"] #shift-dialog,
+html[data-theme="dark"] #med-dialog,
+html[data-theme="dark"] #item-dialog,
+html[data-theme="dark"] #stock-dialog,
+html[data-theme="dark"] #history-dialog { background: #141c2e; }
+html[data-theme="dark"] .btn-ghost { background: #141c2e; }
+html[data-theme="dark"] .tag-wait { color: #f5c869; }
+html[data-theme="dark"] .tag-wait { background: #33290f; }
+html[data-theme="dark"] .code-chip { color: #b3bfd4; }
+html[data-theme="dark"] .code-chip { background: #141c2e; }
+html[data-theme="dark"] .invite-label { color: #b3bfd4; }
+html[data-theme="dark"] .requests { background: #0f2a2a; }
+html[data-theme="dark"] .seg-tab { color: #b3bfd4; }
+html[data-theme="dark"] .seg-tab[aria-selected="true"] { background: #141c2e; }
+html[data-theme="dark"] .color-label { color: #b3bfd4; }
+/* ---- app-ui.css surfaces ---- */
+html[data-theme="dark"] body.app .app-header > :is(.brand-mark, .nav, .app-account),
+html[data-theme="dark"] body.app .side { background: #141c2e; }
+html[data-theme="dark"] body.app .app-header .nav-item.active[aria-disabled] { color: #b3bfd4; }
+html[data-theme="dark"] body.app :is(#profile-actions, #notification-panel) { background: #141c2e; }
+html[data-theme="dark"] body.app .btn-ghost:hover { background: #2a3856; }
+html[data-theme="dark"] body.app .circle-card.add:hover { background: #141c2e; }
+html[data-theme="dark"] body.app .circle-card.pending { background: #141c2e; }
+html[data-theme="dark"] body.app .circle-state { background: #141c2e; }
+html[data-theme="dark"] body.app .requests { background: #141c2e; }
+html[data-theme="dark"] body.app .todo-filter { color: #b3bfd4; }
+html[data-theme="dark"] body.app #circle-root .todo-filter[aria-pressed="true"] { background: #141c2e; }
+html[data-theme="dark"] body.app .todo-filter:hover:not([aria-pressed="true"]) { background: #2a3856; }
+html[data-theme="dark"] body.app .board-item .btn-solid,
+html[data-theme="dark"] body.app .shift-btn.volunteer { background: #141c2e; }
+html[data-theme="dark"] body.app :is(.calendar-week-btn, .view-btn, .week-nav .icon-btn):hover { background: #2a3856; }
+html[data-theme="dark"] body.app .wg-cell.today { border-color: #3b4a69; }
+html[data-theme="dark"] body.app .sh-status { color: #4ade80; }
+html[data-theme="dark"] body.app .rx-card.is-inactive :is(.rx-stock, h3) { color: #b3bfd4; }
+html[data-theme="dark"] body.app dialog :is(.field, .rx-control, .note-input, .dlg-input) { border-color: #34425f; }
+html[data-theme="dark"] #crc-summary { color: #b3bfd4; }
+html[data-theme="dark"] .crc-card { background: #141c2e; }
+html[data-theme="dark"] .crc-avatar { background: #2a3856; }
+html[data-theme="dark"] .crc-chip { color: #b3bfd4; }
+html[data-theme="dark"] .crc-chip { background: #222d44; }
+html[data-theme="dark"] .crc-duty { color: #b3bfd4; }
+html[data-theme="dark"] .crc-pending { background: #1a2438; }
+html[data-theme="dark"] .crc-skeleton { background: #1e2940; }
+html[data-theme="dark"] .phl-summary,
+html[data-theme="dark"] .phl-notice { color: #b3bfd4; }
+html[data-theme="dark"] body.app-v2 .home-card,
+html[data-theme="dark"] body.app-v2 #circles.home-card { background: #141c2e; }
+html[data-theme="dark"] body.app-v2 .home-chip { color: #b3bfd4; }
+html[data-theme="dark"] body.app-v2 .home-chip { background: #222d44; }
+html[data-theme="dark"] body.app-v2 .home-chip-due { color: #f5c869; }
+html[data-theme="dark"] body.app-v2 .home-chip-due { background: #33290f; }
+html[data-theme="dark"] body.app-v2 .home-chip-overdue { color: #ff9b92; }
+html[data-theme="dark"] body.app-v2 .home-chip-overdue { background: #3a1b1b; }
+html[data-theme="dark"] body.app-v2 .home-chip-open { color: #8ec5ff; }
+html[data-theme="dark"] body.app-v2 .home-chip-open { background: #12304f; }
+html[data-theme="dark"] body.app-v2 .home-filter-options { background: #141c2e; }
+html[data-theme="dark"] body.app-v2 .home-filter-choice { background: #141c2e; }
+/* ---- calendar.css surfaces ---- */
+html[data-theme="dark"] .cal-panel { background: #141c2e; }
+html[data-theme="dark"] .calendar-week-btn { background: #141c2e; }
+html[data-theme="dark"] .calendar-week-btn:hover { border-color: #1f5d58; }
+html[data-theme="dark"] .view-btn { background: #141c2e; }
+html[data-theme="dark"] .view-btn:hover { border-color: #1f5d58; }
+html[data-theme="dark"] .view-btn[aria-expanded="true"] { border-color: #1f5d58; }
+html[data-theme="dark"] .week-pill { background: #0f2a2a; }
+html[data-theme="dark"] .week-pill { border: 1px solid #1f5d58; }
+html[data-theme="dark"] .wg-day { background: #1a2438; }
+html[data-theme="dark"] .wg-cell { background: #1a2438; }
+html[data-theme="dark"] .wg-cell { border: 1.5px dashed #34425f; }
+html[data-theme="dark"] .wg-cell:hover { background: #202c44; }
+html[data-theme="dark"] .wg-cell:hover { border-color: #3b4a69; }
+html[data-theme="dark"] .wg-cell.today { background: #0f2a2a; }
+html[data-theme="dark"] .wg-cell.today { border-color: #1f5d58; }
+html[data-theme="dark"] .wg-cell.today:has(.shift) { border-color: #1f5d58; }
+html[data-theme="dark"] .view-panel { background: #141c2e; }
+html[data-theme="dark"] .drawer-empty { border: 1px dashed #34425f; }
+html[data-theme="dark"] .opt { background: #141c2e; }
+html[data-theme="dark"] .opt:hover { background: #1a2438; }
+html[data-theme="dark"] .opt[aria-checked="true"] { background: #1a2438; }
+html[data-theme="dark"] .opt-count { background: #222d44; }
+html[data-theme="dark"] .sh-you { background: #141c2e; }
+html[data-theme="dark"] .sh-status { color: #34d399; }
+html[data-theme="dark"] .shift.open { background: #2b2410; }
+html[data-theme="dark"] .shift.open { border: 1px dashed #5a4a1a; }
+html[data-theme="dark"] .shift.open .sh-who { color: #fcd34d; }
+html[data-theme="dark"] .shift-btn { background: #141c2e; }
+html[data-theme="dark"] .shift-btn { border: 1px solid #34425f; }
+html[data-theme="dark"] .shift-btn.volunteer { border-color: #1f5d58; }
+html[data-theme="dark"] #shift-dialog .dlg-input:focus { background: #141c2e; }
+/* ---- circle.css surfaces ---- */
+html[data-theme="dark"] .back-link { color: #dbe4f5; }
+html[data-theme="dark"] .back-link { background: #222d44; }
+html[data-theme="dark"] .back-link:hover { background: #2a3856; }
+html[data-theme="dark"] .panel { background: #141c2e; }
+html[data-theme="dark"] .btn-danger { background: #141c2e; }
+html[data-theme="dark"] .btn-danger { border: 1px solid #5a2a2a; }
+html[data-theme="dark"] .btn-danger:hover { background: #3a1b1b; }
+html[data-theme="dark"] .page-state { background: #141c2e; }
+html[data-theme="dark"] .stack-avatar { border: 2px solid #141c2e; }
+html[data-theme="dark"] .settings-btn { color: #b3bfd4; }
+html[data-theme="dark"] .settings-btn { background: #141c2e; }
+html[data-theme="dark"] .settings-menu { background: #141c2e; }
+html[data-theme="dark"] .settings-item.danger:hover { background: #3a1b1b; }
+html[data-theme="dark"] .btn-handoff { background: #141c2e; }
+html[data-theme="dark"] .note-input:focus { background: #141c2e; }
+/* ---- pharmacy.css surfaces ---- */
+html[data-theme="dark"] .rx-chip { color: #b3bfd4; }
+html[data-theme="dark"] .rx-chip { background: #222d44; }
+html[data-theme="dark"] .rx-chip-low { color: #f5c869; }
+html[data-theme="dark"] .rx-chip-low { background: #33290f; }
+html[data-theme="dark"] .rx-chip-out,
+html[data-theme="dark"] .rx-chip-overdue,
+html[data-theme="dark"] .rx-chip-expired { color: #ff9b92; }
+html[data-theme="dark"] .rx-chip-out,
+html[data-theme="dark"] .rx-chip-overdue,
+html[data-theme="dark"] .rx-chip-expired { background: #3a1b1b; }
+html[data-theme="dark"] .rx-chip-soon,
+html[data-theme="dark"] .rx-chip-flag { color: #ffb27a; }
+html[data-theme="dark"] .rx-chip-soon,
+html[data-theme="dark"] .rx-chip-flag { background: #3a2415; }
+html[data-theme="dark"] .rx-chip-due { color: #8ec5ff; }
+html[data-theme="dark"] .rx-chip-due { background: #12304f; }
+html[data-theme="dark"] .rx-chip-inactive { color: #b3bfd4; }
+html[data-theme="dark"] .rx-chip-inactive { background: #222d44; }
+html[data-theme="dark"] .rx-dose { background: #141c2e; }
+html[data-theme="dark"] .rx-group-title { color: #b3bfd4; }
+html[data-theme="dark"] .rx-schedules summary { color: #b3bfd4; }
+html[data-theme="dark"] .rx-control:focus { background: #141c2e; }
+html[data-theme="dark"] .rx-day { color: #b3bfd4; }
+html[data-theme="dark"] .rx-day { background: #141c2e; }
+html[data-theme="dark"] .rx-stat { background: #141c2e; }
+html[data-theme="dark"] .rx-stat.rx-stat-low { background: #2b2410; }
+html[data-theme="dark"] .rx-stat.rx-stat-low { border-color: #5a4a1a; }
+html[data-theme="dark"] .rx-stat.rx-stat-out { background: #2e1818; }
+html[data-theme="dark"] .rx-stat.rx-stat-soon { background: #2e1f12; }
+html[data-theme="dark"] .rx-stat.rx-stat-soon { border-color: #5a3a1f; }
+html[data-theme="dark"] .rx-toggle { color: #b3bfd4; }
+html[data-theme="dark"] .rx-card { background: #141c2e; }
+html[data-theme="dark"] .rx-notes { color: #b3bfd4; }
+html[data-theme="dark"] .rx-move-nums strong.is-down { color: #ff9b92; }
+
+/* ---------- Things the generator can't infer ---------- */
+
+/* Light accent fills (they used to be navy) need dark text */
+html[data-theme="dark"] :is(.btn-create, .btn-solid),
+html[data-theme="dark"] body.app .app-header .nav-item.active,
+html[data-theme="dark"] body.app #avatar-initial,
+html[data-theme="dark"] body.app dialog .seg-tab[aria-selected="true"],
+html[data-theme="dark"] .rx-day[aria-pressed="true"],
+html[data-theme="dark"] .calendar-week-btn::after,
+html[data-theme="dark"] .wg-day.today {
+  color: #0b1220;
+}
+
+html[data-theme="dark"] .wg-day.today small { color: #0b1220b8; }
+
+/* Dark panels */
+html[data-theme="dark"] body.app dialog .dlg-head { background: #1f2d4a; }
+html[data-theme="dark"] body.app .circle-hero { background: linear-gradient(120deg, #14233f, #193760); }
+html[data-theme="dark"] body.app-v2 .home-brief { background: linear-gradient(110deg, #14233f, #153155); }
+
+/* White buttons that sit on the dark hero and brief keep dark text */
+html[data-theme="dark"] body.app #circle-root .invite-row .code-chip,
+html[data-theme="dark"] body.app-v2 .home-brief-action { color: #0b1220; }
+
+/* Home rings */
+html[data-theme="dark"] body.app-v2 .home-ring-track { stroke: #26324a; }
+
+/* Skeleton loaders */
+html[data-theme="dark"] .circle-skel {
+  background: linear-gradient(90deg, var(--field), #26324a, var(--field));
+}
+
+/* Calendar shift cards take the circle's colour, darkened */
+html[data-theme="dark"] .shift {
+  background: color-mix(in srgb, var(--c) 28%, #141c2e);
+  border-color: color-mix(in srgb, var(--c) 45%, #141c2e);
+}
+
+html[data-theme="dark"] body.app .shift { border-color: color-mix(in srgb, var(--c) 45%, #141c2e); }
+
+html[data-theme="dark"] .shift.open,
+html[data-theme="dark"] body.app .shift.open {
+  background: #2b2410;
+  border-color: #5a4a1a;
+}
+
+/* Panels and cards share a rule with the hero, so the generator skipped them */
+html[data-theme="dark"] body.app :is(.panel, .page-state, .cal-panel, .rx-card, .rx-stat) {
+  background: #141c2e;
+}
+
+html[data-theme="dark"] body.app #circle-root :is(.circle-heading .hero-desc, .panel .widget-sub, .panel .empty, .board-text .muted) {
+  color: #b3bfd4;
+}

@@ -140,26 +140,28 @@ const copy = {
   circle_owner_immutable: 'The owner membership cannot be changed.',
   circle_owner_must_be_creator: 'Only the creator can own this circle.',
   circle_creator_must_be_owner: 'The creator must remain the owner.',
-  circle_owner_cannot_leave: 'Owners must delete the circle to remove their ownership.'
+  circle_owner_cannot_leave: 'Owners must delete the circle to remove their ownership.',
+  shift_overlap: 'That overlaps another shift in this circle. Pick a different time.'
 };
 
 test('Manila day, midnight range, and exact shift cutoffs across UTC dates', () => {
   const { run } = harness();
   const time = run('KalinTime');
-  const morning = { shift_date: date, slot: 'morning' };
-  const evening = { shift_date: date, slot: 'evening' };
-  for (const [stamp, slot, startedMorning, startedEvening] of [
-    ['2026-11-22T22:59:00Z', null, false, false],
-    ['2026-11-22T23:00:00Z', 'morning', true, false],
-    ['2026-11-23T06:59:00Z', 'morning', true, false],
-    ['2026-11-23T07:00:00Z', 'evening', true, true],
-    ['2026-11-23T13:59:00Z', 'evening', true, true],
-    ['2026-11-23T14:00:00Z', null, true, true]
+  const morning = { shift_date: date, starts_at: '07:00:00', ends_at: '15:00:00' };
+  const evening = { shift_date: date, starts_at: '15:00:00', ends_at: '22:00:00' };
+  for (const [stamp, startedMorning, startedEvening, dutyMorning, dutyEvening] of [
+    ['2026-11-22T22:59:00Z', false, false, false, false],
+    ['2026-11-22T23:00:00Z', true, false, true, false],
+    ['2026-11-23T06:59:00Z', true, false, true, false],
+    ['2026-11-23T07:00:00Z', true, true, false, true],
+    ['2026-11-23T13:59:00Z', true, true, false, true],
+    ['2026-11-23T14:00:00Z', true, true, false, false]
   ]) {
     assert.equal(time.manilaToday(new Date(stamp)), date);
-    assert.equal(time.currentSlot(new Date(stamp)), slot);
-    assert.equal(time.hasStarted(morning, new Date(stamp)), startedMorning);
-    assert.equal(time.hasStarted(evening, new Date(stamp)), startedEvening);
+    assert.equal(time.hasStarted(morning, new Date(stamp)), startedMorning, stamp);
+    assert.equal(time.hasStarted(evening, new Date(stamp)), startedEvening, stamp);
+    assert.equal(time.isOnDuty(morning, new Date(stamp)), dutyMorning, stamp);
+    assert.equal(time.isOnDuty(evening, new Date(stamp)), dutyEvening, stamp);
   }
   assert.equal(time.manilaToday(new Date('2026-11-22T15:59:59.999Z')), '2026-11-22');
   assert.equal(time.manilaNow(new Date('2026-11-22T16:00:00Z')).time, '00:00:00');
@@ -170,6 +172,27 @@ test('Manila day, midnight range, and exact shift cutoffs across UTC dates', () 
   assert.equal(range.end.toISOString(), '2026-11-23T16:00:00.000Z');
   assert.equal(time.shiftEnd(morning).toISOString(), '2026-11-23T07:00:00.000Z');
   assert.equal(time.shiftEnd(evening).toISOString(), '2026-11-23T14:00:00.000Z');
+
+  // Shifts can start and end at any time, with or without seconds
+  const custom = { shift_date: date, starts_at: '09:30', ends_at: '11:45:00' };
+  assert.equal(time.shiftStart(custom).toISOString(), '2026-11-23T01:30:00.000Z');
+  assert.equal(time.shiftEnd(custom).toISOString(), '2026-11-23T03:45:00.000Z');
+  assert.equal(time.shiftRange(custom), '9:30 AM – 11:45 AM');
+  assert.equal(time.shiftRange(evening), '3:00 PM – 10:00 PM');
+  assert.deepEqual([morning, { starts_at: '13:00:00' }, evening, { starts_at: '22:30:00' }].map(time.shiftPeriod),
+    ['Morning', 'Afternoon', 'Evening', 'Night']);
+
+  // A shift whose end is not later than its start runs into the next day
+  const night = { shift_date: date, starts_at: '18:00:00', ends_at: '06:00:00' };
+  assert.equal(time.spansMidnight(night), true);
+  assert.equal(time.spansMidnight(evening), false);
+  assert.equal(time.shiftStart(night).toISOString(), '2026-11-23T10:00:00.000Z');
+  assert.equal(time.shiftEnd(night).toISOString(), '2026-11-23T22:00:00.000Z');
+  assert.equal(time.isOnDuty(night, new Date('2026-11-23T09:59:00Z')), false);
+  assert.equal(time.isOnDuty(night, new Date('2026-11-23T20:00:00Z')), true, '4:00 AM the next morning');
+  assert.equal(time.isOnDuty(night, new Date('2026-11-23T22:00:00Z')), false);
+  assert.equal(time.shiftRange(night), '6:00 PM – 6:00 AM (next day)');
+  assert.equal(time.shiftPeriod(night), 'Night');
 });
 
 test('every Batch B message matches exactly, with a safe fallback', async () => {
@@ -184,17 +207,19 @@ test('every Batch B message matches exactly, with a safe fallback', async () => 
   assert.equal(errors({ code: 'P0001', message: 'Internal constraint details' }), 'Something went wrong. Please try again.');
 });
 
+const EVENING = { starts_at: '15:00:00', ends_at: '22:00:00' };
+
 function shift(id, values = {}) {
-  return { id, shift_date: date, slot: 'morning', circle_id: circle.id, circles: circle, assigned_to: null, ...values };
+  return { id, shift_date: date, starts_at: '07:00:00', ends_at: '15:00:00', circle_id: circle.id, circles: circle, assigned_to: null, ...values };
 }
 
 test('Calendar uses Manila, gates both actions, preserves history, and refreshes rejected claims and releases', async () => {
   const app = harness();
   app.tables.circles = [circle];
   app.tables.shifts = [
-    shift('started'), shift('available', { slot: 'evening', assigned_name: 'Old snapshot' }),
+    shift('started'), shift('available', { ...EVENING, assigned_name: 'Old snapshot' }),
     shift('mine', { assigned_to: user.id, assigned_name: 'Snapshot <Volunteer>', profiles: { full_name: 'Other name' } }),
-    shift('mine-later', { assigned_to: user.id, slot: 'evening' }),
+    shift('mine-later', { assigned_to: user.id, ...EVENING }),
     shift('past', { shift_date: '2026-11-22', assigned_name: 'Past Volunteer' })
   ];
   app.load('calendar');
@@ -240,7 +265,7 @@ test('Circle board gates Volunteer and reloads after rejection, and duty uses th
   const duty = shift('duty', { assigned_to: user.id, assigned_name: 'Duty Snapshot', profiles: { full_name: 'Other name' } });
   app.tables.shifts = calls => calls.some(([method]) => method === 'not')
     ? [duty]
-    : [shift('started'), shift('available', { slot: 'evening' })];
+    : [shift('started'), shift('available', { ...EVENING })];
   app.load('circle', `
     window.board = {
       start(circle) {
@@ -279,7 +304,7 @@ test('Home excludes started shifts and Home and Circles prefer the duty snapshot
   const app = harness();
   const duty = shift('duty', { assigned_to: user.id, assigned_name: 'Snapshot Name', profiles: { full_name: 'Other name' } });
   const started = shift('started');
-  const future = shift('future', { slot: 'evening' });
+  const future = shift('future', { ...EVENING });
   app.tables.shifts = [duty, started, future];
   app.element('notif').appendChild(new Element('span', 'dot'));
   app.element('home-brief-body').closest = () => new Element('section');
@@ -289,8 +314,9 @@ test('Home excludes started shifts and Home and Circles prefer the duty snapshot
   assert.equal(data.today, date);
   assert.equal((await home.careFlags(data)).openShifts.map(row => row.id).join(','), 'future');
   await data.nextShifts();
-  assert.ok(app.queries.some(({ calls }) => calls.some(([method, filter]) => method === 'or' &&
-    filter === 'shift_date.gt.' + date + ',and(shift_date.eq.' + date + ',slot.in.(evening))')));
+  assert.ok(app.queries.some(({ table, calls }) => table === 'shifts' &&
+    calls.some(call => call.join('|') === 'gte|shift_date|' + date) &&
+    calls.some(call => call.join('|') === 'order|starts_at')));
   home.renderShifts(data, [duty]);
   assert.equal(app.element('home-shifts-body').textContent, 'No upcoming shifts');
   home.renderCirclesCard(data, [duty]);
@@ -381,7 +407,101 @@ test('Pharmacy accepts two decimals and rejects out-of-range or disallowed zero 
 
 test('every app page loads the shared clock ahead of its app scripts', () => {
   for (const file of ['calendar', 'circle', 'circles', 'dashboard', 'login', 'pharmacies', 'pharmacy', 'reset-password']) {
-    const scripts = [...read(file + '.html').matchAll(/<script src="js\/([^"]+)"/g)].map(([, name]) => name);
+    // theme.js sits in <head> on its own so the saved theme applies before first paint
+    const scripts = [...read(file + '.html').matchAll(/<script src="js\/([^"]+)"/g)].map(([, name]) => name)
+      .filter(name => name !== 'theme.js');
     assert.deepEqual(scripts.slice(0, 2), ['supabase.js', 'kalin-time.js'], file);
   }
+});
+
+test('Create shift takes specific times, including a night shift that covers the rest of the day', async () => {
+  const app = harness();
+  app.tables.circles = [circle];
+  app.tables.shifts = [];
+  app.load('calendar');
+  await app.run('load()');
+  app.run('openShiftDialog()');
+  const box = app.element('shift-times');
+  assert.equal(box.children.length, 1);
+  const [from, to] = box.children[0].querySelectorAll('input');
+  assert.equal(from.value + '-' + to.value, '06:00-18:00');
+  assert.match(app.element('shift-coverage').textContent, /12 hours covered each day, 12 hours not covered/);
+
+  const submit = () => app.element('shift-form').listeners.submit({ preventDefault() {} });
+  const error = () => app.element('shift-error').textContent;
+  app.element('shift-circle').value = circle.id;
+
+  to.value = '06:00';
+  await submit();
+  assert.equal(error(), 'A shift can’t start and end at the same time.');
+
+  to.value = '18:00';
+  await app.element('shift-add-time').listeners.click();
+  assert.equal(box.children.length, 2);
+  const [from2, to2] = box.children[1].querySelectorAll('input');
+  assert.equal(from2.value + '-' + to2.value, '18:00-06:00', 'the second shift fills the rest of the day');
+  assert.equal(app.element('shift-coverage').textContent, 'These shifts cover the full 24 hours.');
+
+  from2.value = '17:00';
+  await submit();
+  assert.equal(error(), 'The shift times can’t overlap each other.');
+
+  // A night shift that runs into the next morning overlaps the day shift when the shifts repeat daily
+  from2.value = '18:00';
+  to2.value = '08:00';
+  app.element('shift-repeat').value = 'daily';
+  await submit();
+  assert.equal(error(), 'The shift times can’t overlap each other.');
+
+  app.element('shift-repeat').value = 'none';
+  to2.value = '06:00';
+  app.queries.length = 0;
+  await submit();
+  assert.equal(error(), '');
+  const upsert = app.queries.flatMap(({ calls }) => calls).find(([method]) => method === 'upsert');
+  assert.equal(JSON.stringify(upsert[1]), JSON.stringify([
+    { circle_id: circle.id, shift_date: date, starts_at: '06:00', ends_at: '18:00' },
+    { circle_id: circle.id, shift_date: date, starts_at: '18:00', ends_at: '06:00' }
+  ]));
+  assert.equal(upsert[2].onConflict, 'circle_id,shift_date,starts_at');
+});
+
+test('A night shift that started yesterday is on duty after midnight', async () => {
+  const app = harness();
+  app.setNow('2026-11-23T20:00:00Z'); // 4:00 AM Manila on the 24th
+  const night = shift('night', { starts_at: '18:00:00', ends_at: '06:00:00', assigned_to: user.id, assigned_name: 'Night Nurse' });
+  app.tables.shifts = [night];
+  app.load('circle', `
+    window.board = {
+      start(circle) {
+        thisCircle = circle;
+        dutyText = el('p'); dutyDot = el('span'); dutyProgress = el('progress'); dutyHours = el('span'); dutyOpenShifts = el('a');
+      },
+      loadDuty,
+      view() { return { dutyText, dutyProgress, dutyHours }; }
+    };`);
+  const board = app.context.window.board;
+  board.start(circle);
+  await board.loadDuty();
+  const view = board.view();
+  assert.equal(view.dutyText.textContent, 'Night Nurse (you)');
+  assert.equal(view.dutyProgress.max, 720);
+  assert.equal(view.dutyProgress.value, 600);
+  assert.equal(view.dutyHours.textContent, '6:00 PM – 6:00 AM (next day)');
+  const query = app.queries.find(({ table }) => table === 'shifts');
+  assert.ok(query.calls.some(call => call.join('|') === 'gte|shift_date|' + date), 'looks back to yesterday');
+});
+
+test('Calendar rows follow the shift times that exist this week', async () => {
+  const app = harness();
+  app.tables.circles = [circle];
+  app.tables.shifts = [
+    shift('late', { starts_at: '18:30:00', ends_at: '21:00:00' }),
+    shift('early', { starts_at: '09:15:00', ends_at: '11:00:00' })
+  ];
+  app.load('calendar');
+  await app.run('load()');
+  const html = app.run('document.getElementById("week-grid").innerHTML');
+  assert.ok(html === undefined || typeof html === 'string');
+  assert.equal(app.element('week-grid').querySelectorAll('.wg-cell').length, 14, 'two time rows x seven days');
 });

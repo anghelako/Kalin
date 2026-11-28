@@ -12,6 +12,8 @@
 <link rel="stylesheet" href="css/dashboard.css">
 <link rel="stylesheet" href="css/calendar.css">
 <link rel="stylesheet" href="css/app-ui.css">
+<link rel="stylesheet" href="css/dark.css">
+<script src="js/theme.js"></script>
 </head>
 <body class="app">
 
@@ -225,12 +227,10 @@
       <label class="l" for="shift-date">Date</label>
       <input class="dlg-input" id="shift-date" type="date">
 
-      <label class="l" for="shift-slot">Shift</label>
-      <select class="dlg-input" id="shift-slot">
-        <option value="morning">Morning · 7:00 AM – 3:00 PM</option>
-        <option value="evening">Evening · 3:00 PM – 10:00 PM</option>
-        <option value="both">Both shifts</option>
-      </select>
+      <label class="l">Shift time</label>
+      <div class="shift-times" id="shift-times"></div>
+      <button type="button" class="btn-ghost small" id="shift-add-time">Add another shift time</button>
+      <p class="hint" id="shift-coverage" aria-live="polite"></p>
 
       <label class="l" for="shift-repeat">Repeat</label>
       <select class="dlg-input" id="shift-repeat">

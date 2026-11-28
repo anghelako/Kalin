@@ -69,29 +69,22 @@
     return card;
   }
 
-  function currentSlot(now) {
-    return KalinTime.currentSlot(now);
-  }
-
   async function refreshDuty() {
     const load = ++dutyLoad;
     if (!dutyLines.size) return;
     const user = await window.kalinReady;
     if (!user || load !== dutyLoad) return;
     const now = KalinTime.now();
-    const slot = currentSlot(now);
     let rows = [];
     try {
-      if (slot) {
-        const { data, error } = await client.from('shifts')
-          .select('circle_id, assigned_to, assigned_name, profiles:assigned_to(full_name)')
-          .in('circle_id', [...dutyLines.keys()])
-          .eq('shift_date', KalinRx.todayISO(now))
-          .eq('slot', slot)
-          .not('assigned_to', 'is', null);
-        if (error) throw error;
-        rows = data;
-      }
+      const { data, error } = await client.from('shifts')
+        .select('circle_id, shift_date, starts_at, ends_at, assigned_to, assigned_name, profiles:assigned_to(full_name)')
+        .in('circle_id', [...dutyLines.keys()])
+        .gte('shift_date', KalinTime.addDays(KalinRx.todayISO(now), -1)) // a night shift can have started yesterday
+        .lte('shift_date', KalinRx.todayISO(now))
+        .not('assigned_to', 'is', null);
+      if (error) throw error;
+      rows = data.filter(row => KalinTime.isOnDuty(row, now));
     } catch (_) {
       if (load === dutyLoad) dutyLines.forEach(({ duty }) => { duty.hidden = true; });
       return;

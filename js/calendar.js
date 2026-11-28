@@ -4,21 +4,9 @@
    No demo data or generated sample shifts.
 ========================================================= */
 
-/* Calendar time slots */
-const SLOTS = [
-  {
-    key: 'morning',
-    name: 'Morning shift',
-    time: '7:00 AM – 3:00 PM',
-    icon: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>'
-  },
-  {
-    key: 'evening',
-    name: 'Evening shift',
-    time: '3:00 PM – 10:00 PM',
-    icon: '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>'
-  }
-];
+/* Icons for the time-of-day label on each shift row */
+const SUN_ICON = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+const MOON_ICON = '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
 
 /* Circle colors */
 const PALETTE = [
@@ -110,7 +98,7 @@ async function loadShifts(dates) {
   /* RLS returns only shifts of circles the user belongs to. */
   const { data, error } = await client
     .from('shifts')
-    .select('id, shift_date, slot, assigned_to, assigned_name, circle_id, circles(name), profiles:assigned_to(full_name)')
+    .select('id, shift_date, starts_at, ends_at, assigned_to, assigned_name, circle_id, circles(name), profiles:assigned_to(full_name)')
     .gte('shift_date', ymd(dates[0]))
     .lte('shift_date', ymd(dates[dates.length - 1]))
     .order('shift_date', { ascending: true });
@@ -122,7 +110,8 @@ async function loadShifts(dates) {
   return data.map((row) => ({
     id: row.id,
     shift_date: row.shift_date,
-    slot: row.slot,
+    starts_at: row.starts_at,
+    ends_at: row.ends_at,
     circle: row.circles ? row.circles.name : 'Circle',
     circleId: row.circle_id,
     assigned_to: row.assigned_to,
@@ -348,7 +337,7 @@ function render() {
   /* Calendar header */
   let html = `
     <div class="wg-head">
-      <div class="wg-corner">Time slot</div>
+      <div class="wg-corner">Shift time</div>
   `;
 
   html += dates.map((date) => `
@@ -372,19 +361,28 @@ function render() {
   let shown = 0;
   const shiftsByCell = [];
 
-  for (const slot of SLOTS) {
+  /* One row per distinct start/end time that has a shift this week, earliest first */
+  const timeKey = (shift) => shift.starts_at.slice(0, 5) + '|' + shift.ends_at.slice(0, 5);
+  const rowsByTime = new Map();
+  for (const shift of state.shifts) {
+    if (visible(shift, now) && !rowsByTime.has(timeKey(shift))) rowsByTime.set(timeKey(shift), shift);
+  }
+  const timeRows = [...rowsByTime.entries()].sort(([a], [b]) => a.localeCompare(b));
+
+  for (const [key, sample] of timeRows) {
+    const period = KalinTime.shiftPeriod(sample);
     html += `
       <div class="wg-row">
 
         <div class="wg-slot">
           <b>
             <svg viewBox="0 0 24 24">
-              ${slot.icon}
+              ${period === 'Morning' || period === 'Afternoon' ? SUN_ICON : MOON_ICON}
             </svg>
-            ${slot.name}
+            ${period}
           </b>
 
-          <small>${slot.time}</small>
+          <small>${KalinTime.shiftRange(sample)}</small>
         </div>
     `;
 
@@ -392,7 +390,7 @@ function render() {
       const cards = state.shifts
         .filter((shift) =>
           shift.shift_date === ymd(date) &&
-          shift.slot === slot.key &&
+          timeKey(shift) === key &&
           visible(shift, now)
         )
         .sort((a, b) =>
@@ -702,6 +700,86 @@ KalinTime.onMinute(() => {
 const shiftDialog = $('shift-dialog');
 const shiftForm = $('shift-form');
 const MAX_SHIFT_ROWS = 200;
+const MAX_SHIFT_TIMES = 4;
+const shiftTimesBox = $('shift-times');
+const shiftAddTime = $('shift-add-time');
+
+const clockMinutes = (value) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
+
+/* A shift whose end is not later than its start runs past midnight into the next day */
+function shiftMinutes(start, end) {
+  return start && end ? (clockMinutes(end) - clockMinutes(start) + 1440) % 1440 : 0;
+}
+
+function shiftTimesOverlap(times, repeats) {
+  const spans = times.map((time) => {
+    const start = clockMinutes(time.starts_at);
+    return [start, start + shiftMinutes(time.starts_at, time.ends_at)];
+  });
+  /* A repeating night shift runs into the next day's shifts, so check a day either side too */
+  const offsets = repeats ? [-1440, 0, 1440] : [0];
+  return spans.some(([startA, endA], a) => spans.some(([startB, endB], b) =>
+    a < b && offsets.some((offset) => startA < endB + offset && startB + offset < endA)));
+}
+
+function hoursText(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return (hours ? hours + (hours === 1 ? ' hour' : ' hours') : '') +
+    (hours && rest ? ' ' : '') + (rest ? rest + ' minutes' : '');
+}
+
+function syncShiftCoverage() {
+  const note = $('shift-coverage');
+  const total = Array.from(shiftTimesBox.children).reduce((sum, row) => {
+    const [from, to] = row.querySelectorAll('input');
+    return sum + shiftMinutes(from.value, to.value);
+  }, 0);
+  if (!total) note.textContent = '';
+  else if (total >= 1440) note.textContent = 'These shifts cover the full 24 hours.';
+  else note.textContent = hoursText(total) + ' covered each day, ' + hoursText(1440 - total) + ' not covered.';
+}
+
+function syncShiftTimeRows() {
+  const rows = Array.from(shiftTimesBox.children);
+  rows.forEach((row) => { row.querySelector('button').hidden = rows.length === 1; });
+  shiftAddTime.hidden = rows.length >= MAX_SHIFT_TIMES;
+  syncShiftCoverage();
+}
+
+function shiftTimeRow(start, end) {
+  const row = el('div', 'shift-time-row');
+  const [from, to] = [['Start time', start], ['End time', end]].map(([label, value]) => {
+    const input = document.createElement('input');
+    input.type = 'time';
+    input.className = 'dlg-input';
+    input.value = value;
+    input.setAttribute('aria-label', label);
+    input.addEventListener('input', syncShiftCoverage);
+    return input;
+  });
+  const remove = el('button', 'btn-ghost small', 'Remove');
+  remove.type = 'button';
+  remove.addEventListener('click', () => { row.remove(); syncShiftTimeRows(); });
+  row.append(from, el('span', 'shift-time-to', 'to'), to, remove);
+  return row;
+}
+
+/* A new row starts where the last one ends and runs until the first row starts again, so the
+   shifts together cover the whole day. With nothing left to fill it is four hours long. */
+function nextShiftTimes() {
+  const rows = Array.from(shiftTimesBox.children);
+  const start = rows.at(-1)?.querySelectorAll('input')[1]?.value || '18:00';
+  const firstStart = rows[0]?.querySelectorAll('input')[0]?.value;
+  if (firstStart && firstStart !== start) return [start, firstStart];
+  const [hours, minutes] = start.split(':').map(Number);
+  return [start, String((hours + 4) % 24).padStart(2, '0') + ':' + String(minutes).padStart(2, '0')];
+}
+
+shiftAddTime.addEventListener('click', () => {
+  shiftTimesBox.appendChild(shiftTimeRow(...nextShiftTimes()));
+  syncShiftTimeRows();
+});
 
 function parseYmd(value) {
   return new Date(value + 'T00:00:00Z');
@@ -745,6 +823,8 @@ function openShiftDialog() {
   $('shift-date').min = today;
   $('shift-date').value = today;
   $('shift-weeks-row').hidden = true;
+  shiftTimesBox.replaceChildren(shiftTimeRow('06:00', '18:00'));
+  syncShiftTimeRows();
 
   shiftDialog.showModal();
 }
@@ -768,7 +848,6 @@ shiftForm.addEventListener('submit', async (event) => {
 
   const circleId = $('shift-circle').value;
   const dateValue = $('shift-date').value;
-  const slotValue = $('shift-slot').value;
   const repeat = $('shift-repeat').value;
   const weeks = Math.min(12, Math.max(1, parseInt($('shift-weeks').value, 10) || 1));
 
@@ -778,12 +857,28 @@ shiftForm.addEventListener('submit', async (event) => {
   $('shift-date').min = today;
   if (dateValue < today) { error.textContent = 'Pick today or a later date.'; return; }
 
-  const slots = slotValue === 'both' ? ['morning', 'evening'] : [slotValue];
+  const times = Array.from(shiftTimesBox.children).map((row) => {
+    const [from, to] = row.querySelectorAll('input');
+    return { starts_at: from.value, ends_at: to.value };
+  });
+  if (times.some((time) => !time.starts_at || !time.ends_at)) {
+    error.textContent = 'Enter a start and end time for every shift.';
+    return;
+  }
+  if (times.some((time) => time.ends_at === time.starts_at)) {
+    error.textContent = 'A shift can’t start and end at the same time.';
+    return;
+  }
+  if (shiftTimesOverlap(times, repeat !== 'none')) {
+    error.textContent = 'The shift times can’t overlap each other.';
+    return;
+  }
+
   const rows = [];
 
   shiftDatesFor(dateValue, repeat, weeks).forEach((date) => {
-    slots.forEach((slot) => {
-      rows.push({ circle_id: circleId, shift_date: date, slot });
+    times.forEach((time) => {
+      rows.push({ circle_id: circleId, shift_date: date, ...time });
     });
   });
 
@@ -799,7 +894,7 @@ shiftForm.addEventListener('submit', async (event) => {
   /* Shifts that already exist are skipped, not duplicated or overwritten */
   const { data, error: insertError } = await client
     .from('shifts')
-    .upsert(rows, { onConflict: 'circle_id,shift_date,slot', ignoreDuplicates: true })
+    .upsert(rows, { onConflict: 'circle_id,shift_date,starts_at', ignoreDuplicates: true })
     .select('id');
 
   save.disabled = false;

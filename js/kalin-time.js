@@ -6,11 +6,6 @@ const KalinTime = (() => {
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
     timeZoneName: 'longOffset'
   });
-  const slots = {
-    morning: { from: 7, to: 15 },
-    evening: { from: 15, to: 22 }
-  };
-
   let skew = 0;
   let clockSync;
 
@@ -71,21 +66,44 @@ const KalinTime = (() => {
     return { date, start: manilaInstant(date, 0), end: manilaInstant(addDays(date, 1), 0) };
   }
 
-  function currentSlot(instant) {
-    const { minutes } = manilaNow(instant);
-    return Object.keys(slots).find(key => minutes >= slots[key].from * 60 && minutes < slots[key].to * 60) || null;
-  }
+  // Shifts carry Manila wall-clock times ('07:00' or '07:00:00') and end on the day they start.
+  const clock = time => time.length === 5 ? time + ':00' : time.slice(0, 8);
 
   function shiftStart(shift) {
-    return manilaInstant(shift.shift_date, slots[shift.slot].from);
+    return manilaWallInstant(shift.shift_date + 'T' + clock(shift.starts_at));
+  }
+
+  // A shift whose end time isn't later than its start time runs past midnight and ends the next day.
+  function spansMidnight(shift) {
+    return clock(shift.ends_at) <= clock(shift.starts_at);
   }
 
   function shiftEnd(shift) {
-    return manilaInstant(shift.shift_date, slots[shift.slot].to);
+    const date = spansMidnight(shift) ? addDays(shift.shift_date, 1) : shift.shift_date;
+    return manilaWallInstant(date + 'T' + clock(shift.ends_at));
   }
 
   function hasStarted(shift, instant = now()) {
     return +instant >= +shiftStart(shift);
+  }
+
+  function isOnDuty(shift, instant = now()) {
+    return +instant >= +shiftStart(shift) && +instant < +shiftEnd(shift);
+  }
+
+  function formatClock(time) { // '15:30:00' -> '3:30 PM'
+    const [hours, minutes] = time.split(':').map(Number);
+    return (hours % 12 || 12) + ':' + String(minutes).padStart(2, '0') + ' ' + (hours >= 12 ? 'PM' : 'AM');
+  }
+
+  function shiftRange(shift) {
+    return formatClock(shift.starts_at) + ' – ' + formatClock(shift.ends_at) + (spansMidnight(shift) ? ' (next day)' : '');
+  }
+
+  function shiftPeriod(shift) {
+    if (shift.ends_at && spansMidnight(shift)) return 'Night';
+    const hours = Number(shift.starts_at.slice(0, 2));
+    return hours < 12 ? 'Morning' : hours < 15 ? 'Afternoon' : hours < 21 ? 'Evening' : 'Night';
   }
 
   function onMinute(callback, { visibleOnly = false } = {}) {
@@ -110,7 +128,7 @@ const KalinTime = (() => {
   }
 
   return {
-    zone, slots, now, syncClock, manilaNow, manilaToday, manilaMidnightRange, addDays,
-    currentSlot, shiftStart, shiftEnd, hasStarted, onMinute
+    zone, now, syncClock, manilaNow, manilaToday, manilaMidnightRange, addDays,
+    shiftStart, shiftEnd, spansMidnight, hasStarted, isOnDuty, formatClock, shiftRange, shiftPeriod, onMinute
   };
 })();
